@@ -1,0 +1,63 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.translator-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.source-text {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.source-text:focus {
+  outline: none;
+  border-color: #4285f4;
+}
+
+.translate-btn {
+  padding: 10px 20px;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.translate-btn:hover {
+  background-color: #357ae8;
+}
+
+.translate-btn:active {
+  background-color: #2a66c7;
+}
+
+.result-text {
+  min-height: 120px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #666;
+}

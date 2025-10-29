@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#4285f4"/>
+
+  <!-- Translation symbol -->
+  <g fill="white">
+    <!-- Letter A -->
+    <text x="30" y="55" font-family="Arial, sans-serif" font-size="36" font-weight="bold">A</text>
+
+    <!-- Arrows -->
+    <path d="M 60 35 L 68 35 L 64 28 Z" />
+    <path d="M 60 75 L 68 75 L 64 82 Z" />
+
+    <!-- Letter 文 (Chinese character for "text") -->
+    <text x="75" y="85" font-family="Arial, sans-serif" font-size="32" font-weight="bold">文</text>
+  </g>
+</svg>
