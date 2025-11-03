@@ -191,7 +191,7 @@ translator-extension/
 - [x] API Key 配置 UI（输入、验证、测试）
 - [x] Popup 翻译结果展示
 - [x] 错误处理与用户提示
-- [ ] 划词翻译功能接入真实翻译
+- [x] 划词翻译功能接入真实翻译
 
 **P1 - 性能与体验优化 (Week 3)**
 - [ ] IndexedDB 翻译缓存系统

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { TranslateResult, UserConfig } from '@/types';
 
 export default function SelectionPopup() {
   const [showIcon, setShowIcon] = useState(false); // 控制 icon 是否显示
@@ -6,6 +7,10 @@ export default function SelectionPopup() {
   const [iconPosition, setIconPosition] = useState({ top: 0, left: 0 });
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
   const [selectedText, setSelectedText] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // 翻译加载状态
+  const [error, setError] = useState<string | null>(null); // 错误信息
+  const [translationResult, setTranslationResult] = useState<TranslateResult | null>(null); // 翻译结果
+  const [config, setConfig] = useState<UserConfig | null>(null); // 用户配置
   const iconRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const isOpenRef = useRef(false);
@@ -16,6 +21,15 @@ export default function SelectionPopup() {
     isOpenRef.current = showIcon || showPopup;
     showPopupRef.current = showPopup; // 单独跟踪 popup 状态
   }, [showIcon, showPopup]);
+
+  // 获取用户配置
+  useEffect(() => {
+    chrome.runtime.sendMessage({ type: 'GET_CONFIG', payload: null }, (response) => {
+      if (response?.success && response.data) {
+        setConfig(response.data);
+      }
+    });
+  }, []);
 
   // 监听文本选中事件
   useEffect(() => {
@@ -49,15 +63,19 @@ export default function SelectionPopup() {
         // 使用微任务确保状态更新后再显示新 icon
         // 这样可以有消失再出现的效果，而不是移动过去
         setTimeout(() => {
+          const iconSize = 26; // Icon 的大小
+          const iconCenterX = iconLeft + iconSize / 2; // Icon 中心点 X 坐标
+
           setIconPosition({
             top: iconTop,
             left: iconLeft,
           });
 
-          // Popup 跟 Icon 在同一位置
+          // Popup 基于 Icon 居中定位
+          // 垂直位置与 Icon 相同，水平位置通过 icon 中心点 + translateX(-50%) 实现居中
           setPopupPosition({
-            top: iconTop,
-            left: iconLeft,
+            top: iconTop, // 保持与 Icon 相同的垂直位置
+            left: iconCenterX, // Icon 中心点
           });
 
           setShowIcon(true);
@@ -105,16 +123,53 @@ export default function SelectionPopup() {
     };
   }, [showPopup]); // 依赖 showPopup，只在状态变化时更新监听器
 
+  // 翻译函数
+  const handleTranslate = async () => {
+    if (!selectedText.trim() || !config) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'TRANSLATE',
+        payload: {
+          text: selectedText,
+          from: config.defaultSourceLang || 'auto',
+          to: config.defaultTargetLang || 'zh-CN',
+        },
+      });
+
+      if (response.success && response.data) {
+        setTranslationResult(response.data);
+      } else {
+        setError(response.error || '翻译失败，请重试');
+      }
+    } catch (err) {
+      console.error('Translation error:', err);
+      setError(err instanceof Error ? err.message : '翻译失败，请重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   // 关闭所有（icon + popup）- 可通过点击 X 按钮或点击外部区域触发
   const handleClose = () => {
     setShowIcon(false);
     setShowPopup(false);
+    setTranslationResult(null); // 清空翻译结果
+    setError(null); // 清空错误信息
   };
 
   // 鼠标进入icon，隐藏 icon 并展开 popup 面板
   const handleMouseEnter = () => {
     setShowIcon(false); // 隐藏 icon
     setShowPopup(true);  // 显示 popup
+    // 自动触发翻译
+    if (selectedText && !translationResult) {
+      handleTranslate();
+    }
   };
 
   // 如果 icon 和 popup 都不显示，则不渲染任何内容
@@ -179,6 +234,7 @@ export default function SelectionPopup() {
             position: 'absolute',
             top: `${popupPosition.top}px`,
             left: `${popupPosition.left}px`,
+            transform: 'translateX(-50%)', // 水平居中
             zIndex: 999998,
             background: 'white',
             border: '1px solid #e5e7eb',
@@ -292,70 +348,42 @@ export default function SelectionPopup() {
                 fontSize: '15px',
                 color: '#4b5563',
                 lineHeight: '1.6',
-                fontStyle: 'italic',
+                minHeight: '40px',
               }}
             >
-              ⏳ 翻译功能开发中...
+              {isLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af' }}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="spinner"
+                    style={{ animation: 'spin 1s linear infinite' }}
+                  >
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  <span>翻译中...</span>
+                </div>
+              )}
+              {error && !isLoading && (
+                <div style={{ color: '#ef4444', fontSize: '14px' }}>
+                  ❌ {error}
+                </div>
+              )}
+              {translationResult && !isLoading && !error && (
+                <div style={{ color: '#111827' }}>
+                  {translationResult.translation}
+                </div>
+              )}
+              {!isLoading && !error && !translationResult && (
+                <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                  正在准备翻译...
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* 底部操作按钮 */}
-          <div
-            style={{
-              marginTop: '16px',
-              display: 'flex',
-              gap: '8px',
-              justifyContent: 'flex-end',
-            }}
-          >
-            <button
-              onClick={() => {
-                // TODO: 实现复制功能
-                console.log('复制按钮点击');
-              }}
-              style={{
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: '#6b7280',
-                background: '#f9fafb',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f3f4f6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f9fafb';
-              }}
-            >
-              复制
-            </button>
-            <button
-              onClick={() => {
-                // TODO: 实现翻译功能
-                console.log('翻译按钮点击');
-              }}
-              style={{
-                padding: '6px 12px',
-                fontSize: '13px',
-                color: 'white',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.9';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-            >
-              翻译
-            </button>
           </div>
         </div>
       )}
