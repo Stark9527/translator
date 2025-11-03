@@ -1,0 +1,364 @@
+import { useState, useEffect, useRef } from 'react';
+
+export default function SelectionPopup() {
+  const [showIcon, setShowIcon] = useState(false); // 控制 icon 是否显示
+  const [showPopup, setShowPopup] = useState(false); // 控制 popup 是否显示
+  const [iconPosition, setIconPosition] = useState({ top: 0, left: 0 });
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+  const [selectedText, setSelectedText] = useState('');
+  const iconRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(false);
+  const showPopupRef = useRef(false);
+
+  // 使用 ref 跟踪打开状态，避免 useEffect 依赖导致的问题
+  useEffect(() => {
+    isOpenRef.current = showIcon || showPopup;
+    showPopupRef.current = showPopup; // 单独跟踪 popup 状态
+  }, [showIcon, showPopup]);
+
+  // 监听文本选中事件
+  useEffect(() => {
+    const handleMouseUp = (e: MouseEvent) => {
+      // 如果 popup 已打开，不处理新的划词（用户正在使用 popup）
+      if (showPopupRef.current) {
+        return;
+      }
+
+      // 如果只有 icon 显示，或者什么都没显示，都继续处理
+      // 这样可以更新 icon 到新的划词位置
+      const selection = window.getSelection();
+      const text = selection?.toString().trim();
+
+      if (text && text.length > 0 && text.length < 500) {
+        setSelectedText(text);
+
+        // 获取鼠标松开时的位置（光标位置）
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+
+        // Icon 定位在鼠标光标的右下角
+        // clientX/Y 是相对于视口的，需要加上滚动偏移
+        const iconTop = mouseY + window.scrollY + 10; // 光标下方 10px
+        const iconLeft = mouseX + window.scrollX + 10; // 光标右侧 10px
+
+        // 先关闭旧的 icon（如果有的话）
+        setShowIcon(false);
+        setShowPopup(false);
+
+        // 使用微任务确保状态更新后再显示新 icon
+        // 这样可以有消失再出现的效果，而不是移动过去
+        setTimeout(() => {
+          setIconPosition({
+            top: iconTop,
+            left: iconLeft,
+          });
+
+          // Popup 跟 Icon 在同一位置
+          setPopupPosition({
+            top: iconTop,
+            left: iconLeft,
+          });
+
+          setShowIcon(true);
+        }, 0);
+      }
+    };
+
+    // 只在组件挂载时添加一次事件监听器，使用 ref 来检查状态
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []); // 空依赖数组，只执行一次
+
+  // 监听点击外部关闭悬浮窗
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // 只有在悬浮窗打开时才处理
+      if (!showPopup) {
+        return;
+      }
+
+      // 由于使用了 Shadow DOM，需要使用 composedPath 来获取真实的事件路径
+      const path = e.composedPath();
+
+      // 检查事件路径中是否包含 popup 或 icon
+      const isClickInsidePopup = popupRef.current && path.includes(popupRef.current);
+      const isClickInsideIcon = iconRef.current && path.includes(iconRef.current);
+
+      // 如果点击在外部，关闭悬浮窗
+      if (!isClickInsidePopup && !isClickInsideIcon) {
+        handleClose();
+      }
+    };
+
+    // 只在悬浮窗打开时添加监听器
+    if (showPopup) {
+      // 使用 mousedown 而不是 click，确保在其他事件之前触发
+      document.addEventListener('mousedown', handleClickOutside, true); // 使用捕获阶段
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+    };
+  }, [showPopup]); // 依赖 showPopup，只在状态变化时更新监听器
+
+  // 关闭所有（icon + popup）- 可通过点击 X 按钮或点击外部区域触发
+  const handleClose = () => {
+    setShowIcon(false);
+    setShowPopup(false);
+  };
+
+  // 鼠标进入icon，隐藏 icon 并展开 popup 面板
+  const handleMouseEnter = () => {
+    setShowIcon(false); // 隐藏 icon
+    setShowPopup(true);  // 显示 popup
+  };
+
+  // 如果 icon 和 popup 都不显示，则不渲染任何内容
+  if (!showIcon && !showPopup) return null;
+
+  return (
+    <>
+      {/* 悬浮 Icon - 只在 showIcon 为 true 时显示 */}
+      {showIcon && (
+        <div
+          ref={iconRef}
+          className="translator-icon"
+          onMouseEnter={handleMouseEnter}
+          style={{
+            position: 'absolute',
+            top: `${iconPosition.top}px`,
+            left: `${iconPosition.left}px`,
+            zIndex: 999999,
+            width: '26px',
+            height: '26px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {/* 翻译图标 SVG */}
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m5 8 6 6" />
+            <path d="m4 14 6-6 2-3" />
+            <path d="M2 5h12" />
+            <path d="M7 2h1" />
+            <path d="m22 22-5-10-5 10" />
+            <path d="M14 18h6" />
+          </svg>
+        </div>
+      )}
+
+      {/* 翻译 Popup 面板 */}
+      {showPopup && (
+        <div
+          ref={popupRef}
+          className="translator-popup-panel"
+          onMouseUp={(e) => {
+            // 阻止 mouseup 事件冒泡到 document，防止触发 handleMouseUp
+            e.stopPropagation();
+          }}
+          style={{
+            position: 'absolute',
+            top: `${popupPosition.top}px`,
+            left: `${popupPosition.left}px`,
+            zIndex: 999998,
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '16px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12)',
+            minWidth: '320px',
+            maxWidth: '420px',
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+        >
+          {/* 标题栏 */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #f3f4f6',
+            }}
+          >
+            <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
+              原文
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#6b7280',
+                  background: '#f3f4f6',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                }}
+              >
+                {selectedText.length} 字符
+              </div>
+              {/* 关闭按钮 */}
+              <button
+                onClick={handleClose}
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  color: '#9ca3af',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.color = '#6b7280';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
+                }}
+              >
+                {/* X 图标 */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* 选中的文本 */}
+          <div
+            style={{
+              fontSize: '15px',
+              color: '#111827',
+              lineHeight: '1.6',
+              marginBottom: '16px',
+              maxHeight: '120px',
+              overflowY: 'auto',
+            }}
+          >
+            {selectedText}
+          </div>
+
+          {/* 分隔线 */}
+          <div
+            style={{
+              height: '1px',
+              background: 'linear-gradient(90deg, transparent, #e5e7eb, transparent)',
+              margin: '12px 0',
+            }}
+          />
+
+          {/* 翻译结果区域 */}
+          <div>
+            <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500', marginBottom: '8px' }}>
+              译文
+            </div>
+            <div
+              style={{
+                fontSize: '15px',
+                color: '#4b5563',
+                lineHeight: '1.6',
+                fontStyle: 'italic',
+              }}
+            >
+              ⏳ 翻译功能开发中...
+            </div>
+          </div>
+
+          {/* 底部操作按钮 */}
+          <div
+            style={{
+              marginTop: '16px',
+              display: 'flex',
+              gap: '8px',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <button
+              onClick={() => {
+                // TODO: 实现复制功能
+                console.log('复制按钮点击');
+              }}
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                color: '#6b7280',
+                background: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#f9fafb';
+              }}
+            >
+              复制
+            </button>
+            <button
+              onClick={() => {
+                // TODO: 实现翻译功能
+                console.log('翻译按钮点击');
+              }}
+              style={{
+                padding: '6px 12px',
+                fontSize: '13px',
+                color: 'white',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+            >
+              翻译
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

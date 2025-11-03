@@ -1,10 +1,4 @@
 {
-  "env": {
-    "ANTHROPIC_API_KEY": "sk-ant-api03-r55lROyfPqNxhquAlPf2khzY7zrpn8VnbyZvjIcPxUButMDxgUP707EwruXJNVLdlSWIY9dzLrr4yz3yMma9DQ",
-    "ANTHROPIC_AUTH_TOKEN": "",
-    "ANTHROPIC_BASE_URL": "https://api.aicodemirror.com/api/claudecode",
-    "ANTHROPIC_MODEL": "sonnet"
-  },
   "permissions": {
     "allow": [
       "Bash(tree:*)",
@@ -36,7 +30,10 @@
       "Bash(bash:*)",
       "Bash(do echo \"=== $file ===\")",
       "Bash(wc:*)",
-      "WebSearch"
+      "WebSearch",
+      "mcp__figma-dev-mode-mcp-server__get_design_context",
+      "Bash(curl:*)",
+      "Bash(python3:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
