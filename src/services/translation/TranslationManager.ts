@@ -32,8 +32,8 @@ export class TranslationManager {
         return cachedResult;
       }
 
-      // 2. 执行翻译
-      const translator = TranslatorFactory.getTranslator(engine);
+      // 2. 执行翻译（传递配置到工厂）
+      const translator = TranslatorFactory.getTranslator(engine, config);
       const result = await translator.translate({ text, from, to });
 
       // 3. 缓存结果
@@ -60,7 +60,7 @@ export class TranslationManager {
   static async detectLanguage(text: string): Promise<string> {
     try {
       const config = await ConfigService.getConfig();
-      const translator = TranslatorFactory.getTranslator(config.engine);
+      const translator = TranslatorFactory.getTranslator(config.engine, config);
 
       return await translator.detectLanguage(text);
     } catch (error) {
@@ -76,8 +76,9 @@ export class TranslationManager {
    */
   static async getSupportedLanguages(engine?: TranslationEngine): Promise<string[]> {
     try {
-      const targetEngine = engine || (await ConfigService.getConfig()).engine;
-      const translator = TranslatorFactory.getTranslator(targetEngine);
+      const config = await ConfigService.getConfig();
+      const targetEngine = engine || config.engine;
+      const translator = TranslatorFactory.getTranslator(targetEngine, config);
 
       return translator.getSupportedLanguages();
     } catch (error) {
@@ -93,9 +94,10 @@ export class TranslationManager {
    */
   static async checkAvailability(engine?: TranslationEngine): Promise<boolean> {
     try {
-      const targetEngine = engine || (await ConfigService.getConfig()).engine;
+      const config = await ConfigService.getConfig();
+      const targetEngine = engine || config.engine;
 
-      return await TranslatorFactory.checkAvailability(targetEngine);
+      return await TranslatorFactory.checkAvailability(targetEngine, config);
     } catch (error) {
       console.error('Availability check error:', error);
       return false;

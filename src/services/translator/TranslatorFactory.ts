@@ -1,32 +1,26 @@
 // 翻译引擎工厂
-import type { TranslationEngine } from '@/types';
+import type { TranslationEngine, UserConfig } from '@/types';
 import type { ITranslator } from './ITranslator';
 import { GoogleTranslator } from './GoogleTranslator';
 
 /**
  * 翻译引擎工厂
- * 根据引擎类型创建相应的翻译实例
+ * 根据引擎类型和配置创建相应的翻译实例
  */
 export class TranslatorFactory {
-  private static instances: Map<TranslationEngine, ITranslator> = new Map();
-
   /**
-   * 获取翻译引擎实例(单例模式)
+   * 获取翻译引擎实例
    * @param engine 引擎类型
+   * @param config 用户配置
    * @returns 翻译器实例
    */
-  static getTranslator(engine: TranslationEngine): ITranslator {
-    // 如果已存在实例,直接返回
-    if (this.instances.has(engine)) {
-      return this.instances.get(engine)!;
-    }
-
-    // 创建新实例
+  static getTranslator(engine: TranslationEngine, config: UserConfig): ITranslator {
+    // 创建新实例（不再使用单例模式，因为配置可能变化）
     let translator: ITranslator;
 
     switch (engine) {
       case 'google':
-        translator = new GoogleTranslator();
+        translator = new GoogleTranslator(config.googleApiKey);
         break;
 
       case 'deepl':
@@ -41,38 +35,17 @@ export class TranslatorFactory {
         throw new Error(`不支持的翻译引擎: ${engine}`);
     }
 
-    // 缓存实例
-    this.instances.set(engine, translator);
-
     return translator;
-  }
-
-  /**
-   * 清除缓存的翻译器实例
-   * @param engine 引擎类型,不指定则清除所有
-   */
-  static clearCache(engine?: TranslationEngine): void {
-    if (engine) {
-      this.instances.delete(engine);
-    } else {
-      this.instances.clear();
-    }
-  }
-
-  /**
-   * 获取所有已初始化的翻译引擎
-   */
-  static getInitializedEngines(): TranslationEngine[] {
-    return Array.from(this.instances.keys());
   }
 
   /**
    * 检查引擎是否可用
    * @param engine 引擎类型
+   * @param config 用户配置
    */
-  static async checkAvailability(engine: TranslationEngine): Promise<boolean> {
+  static async checkAvailability(engine: TranslationEngine, config: UserConfig): Promise<boolean> {
     try {
-      const translator = this.getTranslator(engine);
+      const translator = this.getTranslator(engine, config);
       return await translator.isAvailable();
     } catch {
       return false;

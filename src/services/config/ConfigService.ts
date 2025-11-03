@@ -8,6 +8,7 @@ const DEFAULT_CONFIG: UserConfig = {
   engine: 'google',
   defaultSourceLang: 'auto',
   defaultTargetLang: 'zh-CN',
+  googleApiKey: undefined,
   theme: 'auto',
   enableShortcut: true,
   enableHistory: true,

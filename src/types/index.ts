@@ -30,6 +30,7 @@ export interface UserConfig {
   engine: TranslationEngine;
   defaultSourceLang: LanguageCode;
   defaultTargetLang: LanguageCode;
+  googleApiKey?: string;
   deeplApiKey?: string;
   deeplPro?: boolean;
   theme?: 'light' | 'dark' | 'auto';

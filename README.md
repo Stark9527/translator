@@ -4,11 +4,14 @@
 
 ## 🚀 功能特性
 
+- ✅ **官方 API 支持**：使用 Google Cloud Translation API v2，稳定可靠
 - ✅ **划词翻译**：选中文本后自动显示翻译悬浮窗
 - ✅ **输入翻译**：点击扩展图标打开 Popup 进行翻译
-- ✅ **多引擎支持**：Google 翻译 + DeepL（开发中）
+- ✅ **API Key 管理**：安全配置、一键测试、实时验证
+- ✅ **智能错误提示**：友好的错误信息和配置引导
 - ✅ **快捷键**：Ctrl+Q / Command+Q 触发划词翻译
-- ✅ **设置页面**：自定义翻译引擎和偏好设置
+- ✅ **设置页面**：自定义翻译引擎、语言和偏好设置
+- 🚧 **多引擎支持**：DeepL、OpenAI（计划中）
 - 🚧 **翻译历史**：保存翻译历史记录（开发中）
 - 🚧 **生词本**：收藏常用单词和短语（计划中）
 
@@ -105,6 +108,41 @@ translator-extension/
 
 ## 📖 使用指南
 
+### ⚙️ 首次配置
+
+**重要：本扩展使用 Google Cloud Translation API，需要您自己的 API Key**
+
+#### 获取 Google Cloud Translation API Key
+
+1. 访问 [Google Cloud Console](https://console.cloud.google.com/)
+2. 创建新项目或选择现有项目
+3. 启用 **Cloud Translation API**：
+   - 在左侧菜单选择 "APIs & Services" > "Library"
+   - 搜索 "Cloud Translation API"
+   - 点击启用
+4. 创建 API Key：
+   - 在左侧菜单选择 "APIs & Services" > "Credentials"
+   - 点击 "Create Credentials" > "API Key"
+   - 复制生成的 API Key
+5. （推荐）限制 API Key：
+   - 点击刚创建的 API Key 进行编辑
+   - 在 "API restrictions" 中选择 "Restrict key"
+   - 只勾选 "Cloud Translation API"
+   - 保存
+
+#### 配置扩展
+
+1. 安装扩展后，首次打开会自动跳转到设置页面
+2. 在 "Google Cloud Translation API Key" 输入框中粘贴您的 API Key
+3. 点击 "测试 API Key" 按钮验证是否有效
+4. 看到 "✓ API Key 有效" 后，点击 "保存设置"
+
+**费用说明**：
+- Google Cloud Translation API 是付费服务
+- 提供每月 **500,000 字符** 的免费额度（约 250 页文本）
+- 超出免费额度后，每 100 万字符收费 $20
+- [查看详细价格](https://cloud.google.com/translate/pricing)
+
 ### 划词翻译
 
 1. 在任意网页上选中文本
@@ -115,13 +153,13 @@ translator-extension/
 
 1. 点击浏览器工具栏的扩展图标
 2. 在输入框中输入要翻译的文本
-3. 点击"翻译"按钮
+3. 点击"翻译"按钮或按 `Ctrl+Enter` (Mac: `Cmd+Enter`)
 
 ### 设置
 
 1. 右键扩展图标，选择"选项"
-2. 或在 Popup 底部点击"打开设置"
-3. 配置翻译引擎、API Key 等
+2. 或在 Popup 底部点击"设置"
+3. 配置翻译引擎、API Key、默认语言等
 
 ## 🗺️ 开发路线图
 
@@ -147,12 +185,13 @@ translator-extension/
 #### 🚧 进行中 (Week 2 - MVP 核心功能)
 
 **P0 - 翻译核心能力（阻塞 MVP）**
-- [x] Google Translate API 服务层实现
+- [x] Google Cloud Translation API v2 服务层实现
 - [x] 翻译引擎抽象接口设计
 - [x] Background 翻译逻辑完善
+- [x] API Key 配置 UI（输入、验证、测试）
+- [x] Popup 翻译结果展示
+- [x] 错误处理与用户提示
 - [ ] 划词翻译功能接入真实翻译
-- [ ] Popup 翻译结果展示
-- [ ] 错误处理与用户提示
 
 **P1 - 性能与体验优化 (Week 3)**
 - [ ] IndexedDB 翻译缓存系统
