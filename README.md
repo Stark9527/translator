@@ -147,9 +147,9 @@ translator-extension/
 #### 🚧 进行中 (Week 2 - MVP 核心功能)
 
 **P0 - 翻译核心能力（阻塞 MVP）**
-- [ ] Google Translate API 服务层实现
-- [ ] 翻译引擎抽象接口设计
-- [ ] Background 翻译逻辑完善
+- [x] Google Translate API 服务层实现
+- [x] 翻译引擎抽象接口设计
+- [x] Background 翻译逻辑完善
 - [ ] 划词翻译功能接入真实翻译
 - [ ] Popup 翻译结果展示
 - [ ] 错误处理与用户提示

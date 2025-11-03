@@ -1,13 +1,21 @@
 // Background Service Worker for Chrome Extension
+import type { Message } from '@/types/message';
+import type { UserConfig } from '@/types';
+import { TranslationManager } from '@/services/translation/TranslationManager';
+import { ConfigService } from '@/services/config/ConfigService';
 
 console.info('Background service worker started');
 
 // 监听扩展安装事件
-chrome.runtime.onInstalled.addListener(details => {
+chrome.runtime.onInstalled.addListener(async details => {
   console.info('Extension installed:', details.reason);
 
   if (details.reason === 'install') {
-    // 首次安装，打开欢迎页面
+    // 首次安装，初始化默认配置
+    const defaultConfig = ConfigService.getDefaultConfig();
+    await ConfigService.saveConfig(defaultConfig);
+
+    // 打开欢迎页面
     chrome.tabs.create({
       url: chrome.runtime.getURL('src/options/index.html?welcome=true'),
     });
@@ -17,7 +25,7 @@ chrome.runtime.onInstalled.addListener(details => {
 });
 
 // 监听来自 Content Script 和 Popup 的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
   console.info('Received message:', message.type, 'from:', sender);
 
   // 异步处理消息
@@ -27,7 +35,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     .catch(error => {
       console.error('Message handler error:', error);
-      sendResponse({ success: false, error: error.message });
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : '未知错误'
+      });
     });
 
   // 返回 true 表示异步响应
@@ -35,27 +46,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // 消息处理函数
-async function handleMessage(message: any, _sender: chrome.runtime.MessageSender) {
+async function handleMessage(message: Message, _sender: chrome.runtime.MessageSender) {
   const { type, payload } = message;
 
   switch (type) {
     case 'PING':
       return { message: 'PONG' };
 
-    case 'GET_CONFIG':
-      // TODO: 实现配置获取
-      return { engine: 'google', targetLang: 'zh-CN' };
+    case 'GET_CONFIG': {
+      // 获取用户配置
+      const config = await ConfigService.getConfig();
+      return config;
+    }
 
-    case 'TRANSLATE':
-      // TODO: 实现翻译功能
+    case 'SAVE_CONFIG': {
+      // 保存用户配置
+      const { config } = payload as { config: UserConfig };
+      await ConfigService.saveConfig(config);
+      return { success: true };
+    }
+
+    case 'TRANSLATE': {
+      // 执行翻译
       console.info('Translation request:', payload);
-      return {
-        text: payload.text,
-        translation: '翻译功能待实现',
-        from: payload.from,
-        to: payload.to,
-        engine: 'google',
-      };
+      const result = await TranslationManager.translate(payload);
+      return result;
+    }
 
     default:
       throw new Error(`Unknown message type: ${type}`);
@@ -77,6 +93,14 @@ chrome.commands.onCommand.addListener(command => {
       }
     });
   }
+});
+
+// 监听配置变化
+ConfigService.onConfigChange(config => {
+  console.info('Config changed:', config);
+
+  // 清除翻译缓存（当引擎切换时）
+  TranslationManager.clearCache();
 });
 
 console.info('Background service worker initialized');
