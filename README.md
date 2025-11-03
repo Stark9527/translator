@@ -127,15 +127,59 @@ translator-extension/
 
 详细的开发计划请查看 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 
-### 当前状态：MVP 开发中 (Week 1)
+### 当前状态：MVP 开发中 (Week 1-2)
 
-- [x] 项目脚手架搭建
-- [x] Manifest V3 配置
-- [x] 基础 UI 组件
-- [x] 消息通信框架
-- [ ] Google Translate API 集成
-- [ ] 划词翻译核心功能
-- [ ] Popup 翻译功能
+#### ✅ 已完成
+
+**基础架构 (Week 1)**
+- [x] 项目脚手架搭建 (Vite + React + TypeScript)
+- [x] Manifest V3 配置与权限设置
+- [x] 开发工具链配置 (ESLint, Prettier, Vitest)
+- [x] Tailwind CSS + Radix UI 集成
+- [x] 消息通信框架 (Content ↔ Background)
+
+**UI 界面层**
+- [x] Content Script 划词翻译 UI (悬浮窗、图标、交互)
+- [x] Popup 输入翻译界面
+- [x] Options 设置页面 (引擎选择、API Key 配置)
+- [x] Background Service Worker 基础框架
+
+#### 🚧 进行中 (Week 2 - MVP 核心功能)
+
+**P0 - 翻译核心能力（阻塞 MVP）**
+- [ ] Google Translate API 服务层实现
+- [ ] 翻译引擎抽象接口设计
+- [ ] Background 翻译逻辑完善
+- [ ] 划词翻译功能接入真实翻译
+- [ ] Popup 翻译结果展示
+- [ ] 错误处理与用户提示
+
+**P1 - 性能与体验优化 (Week 3)**
+- [ ] IndexedDB 翻译缓存系统
+- [ ] Chrome Storage 配置管理
+- [ ] Shadow DOM 样式隔离优化
+- [ ] 复制译文功能
+- [ ] 文本朗读 (TTS)
+- [ ] 加载动画与状态反馈
+
+#### 📋 待开发功能
+
+**第二阶段：功能增强 (Week 4-6)**
+- [ ] DeepL API 集成
+- [ ] 网页全文翻译（双语对照模式）
+- [ ] 输入框快速翻译（右键菜单）
+- [ ] 翻译历史记录管理
+- [ ] 生词本功能（收藏与分组）
+- [ ] 多语言发音与例句
+- [ ] 翻译配额监控与提醒
+
+**第三阶段：高级特性 (Week 7+)**
+- [ ] AI 增强模式 (LLM 接入)
+- [ ] 专业术语库管理
+- [ ] 云同步 (历史、生词本、配置)
+- [ ] 多引擎智能选择策略
+- [ ] 自定义主题与快捷键
+- [ ] 数据导入导出
 
 ## 📝 许可
 
