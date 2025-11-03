@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { TranslateResult, UserConfig } from '@/types';
+import { Icon } from '@/components/ui/icon';
+import { Volume2, Copy } from 'lucide-react';
 
 export default function App() {
   const [inputText, setInputText] = useState('');
@@ -68,6 +70,42 @@ export default function App() {
     return false;
   };
 
+  const handleSpeak = (text: string, lang?: string) => {
+    if (!text.trim()) return;
+
+    try {
+      // 停止之前的朗读
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      // 设置语言
+      if (lang) {
+        utterance.lang = lang;
+      }
+
+      // 设置语速和音调
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Speech error:', error);
+    }
+  };
+
+  const handleCopy = async (text: string) => {
+    if (!text.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      // 可以添加一个提示，告诉用户复制成功
+      console.log('复制成功');
+    } catch (error) {
+      console.error('Copy error:', error);
+    }
+  };
+
   return (
     <div className="w-[400px] h-[500px] p-4 bg-background flex flex-col">
       {/* 标题 */}
@@ -96,9 +134,20 @@ export default function App() {
       {/* 输入区域 */}
       <div className="flex-1 flex flex-col gap-3 min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
-          <label className="text-sm font-medium text-foreground mb-1">
-            输入文本
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-sm font-medium text-foreground">
+              输入文本
+            </label>
+            {inputText.trim() && (
+              <button
+                onClick={() => handleSpeak(inputText, config?.defaultSourceLang)}
+                className="p-1 hover:bg-accent rounded-md transition-colors"
+                title="朗读原文"
+              >
+                <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
+              </button>
+            )}
+          </div>
           <textarea
             className="flex-1 p-3 border border-input rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring text-sm"
             placeholder="请输入要翻译的文本... (Ctrl/Cmd + Enter 翻译)"
@@ -118,9 +167,29 @@ export default function App() {
 
         {/* 翻译结果区域 */}
         <div className="flex-1 flex flex-col min-h-0">
-          <label className="text-sm font-medium text-foreground mb-1">
-            翻译结果
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-sm font-medium text-foreground">
+              翻译结果
+            </label>
+            {translationResult && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleSpeak(translationResult.translation, translationResult.to)}
+                  className="p-1 hover:bg-accent rounded-md transition-colors"
+                  title="朗读译文"
+                >
+                  <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
+                </button>
+                <button
+                  onClick={() => handleCopy(translationResult.translation)}
+                  className="p-1 hover:bg-accent rounded-md transition-colors"
+                  title="复制译文"
+                >
+                  <Icon icon={Copy} size="sm" className="text-muted-foreground hover:text-foreground" />
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex-1 p-3 border border-input rounded-md bg-muted overflow-auto">
             {isLoading ? (
               <p className="text-sm text-muted-foreground">翻译中...</p>

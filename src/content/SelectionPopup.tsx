@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TranslateResult, UserConfig } from '@/types';
+import { Icon } from '@/components/ui/icon';
+import { Volume2, Copy } from 'lucide-react';
 
 export default function SelectionPopup() {
   const [showIcon, setShowIcon] = useState(false); // 控制 icon 是否显示
@@ -153,6 +155,43 @@ export default function SelectionPopup() {
     }
   };
 
+  // 朗读函数
+  const handleSpeak = (text: string, lang?: string) => {
+    if (!text.trim()) return;
+
+    try {
+      // 停止之前的朗读
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      // 设置语言
+      if (lang) {
+        utterance.lang = lang;
+      }
+
+      // 设置语速和音调
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Speech error:', error);
+    }
+  };
+
+  // 复制函数
+  const handleCopy = async (text: string) => {
+    if (!text.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      // 复制成功，可以添加提示
+    } catch (error) {
+      console.error('Copy error:', error);
+    }
+  };
+
 
   // 关闭所有（icon + popup）- 可通过点击 X 按钮或点击外部区域触发
   const handleClose = () => {
@@ -257,8 +296,37 @@ export default function SelectionPopup() {
               borderBottom: '1px solid #f3f4f6',
             }}
           >
-            <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
-              原文
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
+                原文
+              </div>
+              {/* 朗读原文按钮 */}
+              <button
+                onClick={() => handleSpeak(selectedText, config?.defaultSourceLang)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  padding: '2px',
+                  color: '#9ca3af',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.color = '#6b7280';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
+                }}
+                title="朗读原文"
+              >
+                <Icon icon={Volume2} size="xs" />
+              </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
@@ -340,8 +408,69 @@ export default function SelectionPopup() {
 
           {/* 翻译结果区域 */}
           <div>
-            <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500', marginBottom: '8px' }}>
-              译文
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
+                译文
+              </div>
+              {/* 只在有翻译结果时显示操作按钮 */}
+              {translationResult && !isLoading && !error && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {/* 朗读译文按钮 */}
+                  <button
+                    onClick={() => handleSpeak(translationResult.translation, translationResult.to)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      padding: '2px',
+                      color: '#9ca3af',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f3f4f6';
+                      e.currentTarget.style.color = '#6b7280';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = '#9ca3af';
+                    }}
+                    title="朗读译文"
+                  >
+                    <Icon icon={Volume2} size="xs" />
+                  </button>
+                  {/* 复制译文按钮 */}
+                  <button
+                    onClick={() => handleCopy(translationResult.translation)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      borderRadius: '4px',
+                      padding: '2px',
+                      color: '#9ca3af',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f3f4f6';
+                      e.currentTarget.style.color = '#6b7280';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = '#9ca3af';
+                    }}
+                    title="复制译文"
+                  >
+                    <Icon icon={Copy} size="xs" />
+                  </button>
+                </div>
+              )}
             </div>
             <div
               style={{
