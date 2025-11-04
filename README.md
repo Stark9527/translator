@@ -194,11 +194,11 @@ translator-extension/
 - [x] 划词翻译功能接入真实翻译
 
 **P1 - 性能与体验优化 (Week 3)**
-- [ ] IndexedDB 翻译缓存系统
+- [x] 复制译文功能
+- [x] 文本朗读 (TTS)
+- [x] IndexedDB 翻译缓存系统（两层缓存：内存 + 持久化）
 - [ ] Chrome Storage 配置管理
 - [ ] Shadow DOM 样式隔离优化
-- [ ] 复制译文功能
-- [ ] 文本朗读 (TTS)
 - [ ] 加载动画与状态反馈
 
 #### 📋 待开发功能

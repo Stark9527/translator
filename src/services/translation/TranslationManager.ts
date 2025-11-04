@@ -3,6 +3,7 @@ import type { TranslateParams, TranslateResult, TranslationEngine } from '@/type
 import { TranslatorFactory } from '../translator/TranslatorFactory';
 import { ConfigService } from '../config/ConfigService';
 import { translationCache } from '../cache/TranslationCache';
+import { indexedDBCache } from '../cache/IndexedDBCache';
 import { formatErrorMessage } from '../translator/utils';
 
 /**
@@ -25,19 +26,30 @@ export class TranslationManager {
 
       console.info(`Translation request: [${engine}] ${from} -> ${to}`, text.substring(0, 50));
 
-      // 1. 检查缓存
-      const cachedResult = translationCache.get(text, from, to, engine);
-      if (cachedResult) {
-        console.info('Translation cache hit');
-        return cachedResult;
+      // 1. 检查 L1 内存缓存
+      const l1CachedResult = translationCache.get(text, from, to, engine);
+      if (l1CachedResult) {
+        console.info('Translation L1 cache hit (memory)');
+        return l1CachedResult;
       }
 
-      // 2. 执行翻译（传递配置到工厂）
+      // 2. 检查 L2 IndexedDB 缓存
+      const l2CachedResult = await indexedDBCache.get(text, from, to, engine);
+      if (l2CachedResult) {
+        console.info('Translation L2 cache hit (IndexedDB)');
+        // 回填到 L1 缓存
+        translationCache.set(text, from, to, engine, l2CachedResult);
+        return l2CachedResult;
+      }
+
+      // 3. 执行翻译（传递配置到工厂）
+      console.info('Translation cache miss, fetching from API...');
       const translator = TranslatorFactory.getTranslator(engine, config);
       const result = await translator.translate({ text, from, to });
 
-      // 3. 缓存结果
+      // 4. 同时缓存到 L1 和 L2
       translationCache.set(text, from, to, engine, result);
+      await indexedDBCache.set(text, from, to, engine, result);
 
       console.info('Translation success:', result.translation.substring(0, 50));
 
@@ -121,17 +133,31 @@ export class TranslationManager {
   }
 
   /**
-   * 清除翻译缓存
+   * 清除翻译缓存（同时清除 L1 和 L2）
    */
-  static clearCache(): void {
+  static async clearCache(): Promise<void> {
     translationCache.clear();
-    console.info('Translation cache cleared');
+    await indexedDBCache.clear();
+    console.info('Translation cache cleared (L1 + L2)');
   }
 
   /**
    * 获取缓存统计信息
    */
-  static getCacheStats() {
-    return translationCache.getStats();
+  static async getCacheStats() {
+    const l1Stats = translationCache.getStats();
+    const l2Stats = await indexedDBCache.getStats();
+
+    return {
+      l1: {
+        name: 'Memory Cache',
+        ...l1Stats,
+      },
+      l2: {
+        name: 'IndexedDB Cache',
+        ...l2Stats,
+      },
+      totalSize: l1Stats.size + l2Stats.size,
+    };
   }
 }

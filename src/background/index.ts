@@ -96,11 +96,11 @@ chrome.commands.onCommand.addListener(command => {
 });
 
 // 监听配置变化
-ConfigService.onConfigChange(config => {
+ConfigService.onConfigChange(async (config) => {
   console.info('Config changed:', config);
 
   // 清除翻译缓存（当引擎切换时）
-  TranslationManager.clearCache();
+  await TranslationManager.clearCache();
 });
 
 console.info('Background service worker initialized');
