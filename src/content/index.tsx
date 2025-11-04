@@ -2,6 +2,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import SelectionPopup from './SelectionPopup';
+// 使用 ?inline 导入 CSS 内容为字符串
+import contentStyles from './index.css?inline';
 
 console.info('Translator content script loaded');
 
@@ -19,11 +21,10 @@ function mountTranslatorUI() {
   const shadowContainer = document.createElement('div');
   shadowRoot.appendChild(shadowContainer);
 
-  // 注入样式
-  const style = document.createElement('link');
-  style.rel = 'stylesheet';
-  style.href = chrome.runtime.getURL('src/content/index.css');
-  shadowRoot.appendChild(style);
+  // 注入样式 - 使用内联方式避免加载延迟
+  const styleElement = document.createElement('style');
+  styleElement.textContent = contentStyles;
+  shadowRoot.appendChild(styleElement);
 
   // 渲染 React 组件
   const root = createRoot(shadowContainer);
@@ -33,7 +34,7 @@ function mountTranslatorUI() {
     </React.StrictMode>
   );
 
-  console.info('Translator UI mounted');
+  console.info('Translator UI mounted with Shadow DOM isolation');
 }
 
 // 监听来自 Background 的消息

@@ -28,7 +28,6 @@
     {
       "matches": ["<all_urls>"],
       "js": ["src/content/index.tsx"],
-      "css": ["src/content/index.css"],
       "run_at": "document_end",
       "all_frames": false
     }

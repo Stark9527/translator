@@ -1,17 +1,61 @@
 /* Content Script 样式 - 在 Shadow DOM 中使用 */
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ==================== Shadow DOM 样式隔离 ==================== */
+
+/*
+ * Shadow DOM 提供了天然的样式隔离：
+ * 1. 外部样式不会影响 Shadow DOM 内部（除了继承的属性如 color、font-family）
+ * 2. 内部样式不会泄露到外部
+ * 3. 需要明确重置可能继承的属性
+ */
+
+/* :host 选择器用于 Shadow DOM 根元素 */
+:host {
+  /* 重置可能继承的属性，确保不受页面样式影响 */
+  color: initial;
+  font-family: initial;
+  font-size: initial;
+  line-height: initial;
+  font-weight: initial;
+  text-align: initial;
+  text-transform: initial;
+  letter-spacing: initial;
+  word-spacing: initial;
+
+  /* 确保容器不影响布局 */
+  display: contents;
 }
 
+/* CSS 重置 - 防止继承和默认样式干扰 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+/* 重置可能受页面影响的属性 */
+* {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+  list-style: none;
+}
+
+/* 统一字体和文本渲染 */
 .translator-icon,
 .translator-popup-panel {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
     'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #111827;
 }
 
 /* Icon 动画 */

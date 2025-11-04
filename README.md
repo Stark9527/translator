@@ -198,7 +198,7 @@ translator-extension/
 - [x] 文本朗读 (TTS)
 - [x] IndexedDB 翻译缓存系统（两层缓存：内存 + 持久化）
 - [x] Chrome Storage 配置管理（配置验证、导入/导出、Quota 监控、版本管理）
-- [ ] Shadow DOM 样式隔离优化
+- [x] Shadow DOM 样式隔离优化（内联样式、:host 重置、完全隔离）
 - [ ] 加载动画与状态反馈
 
 #### 📋 待开发功能
