@@ -199,7 +199,35 @@ translator-extension/
 - [x] Shadow DOM 样式隔离优化（内联样式、:host 重置、完全隔离）
 
 #### 🚧 进行中 - 第二阶段：功能增强 (Week 4-6)
-- [ ] 生词本功能（收藏与分组）
+
+**Flashcard 智能学习系统（使用 FSRS 算法）**
+- [x] **阶段 1：基础设施 (1-2天)** ✅
+  - [x] 1.1 安装依赖（ts-fsrs, recharts, date-fns, uuid）
+  - [x] 1.2 定义 Flashcard 数据类型（src/types/flashcard.ts）
+  - [x] 1.3 创建 FlashcardDB IndexedDB 服务
+  - [x] 1.4 实现 CRUD 操作和批量接口
+
+- [x] **阶段 2：核心服务层 (2-3天)** ✅
+  - [x] 2.1 封装 FSRS 算法服务（FSRSService.ts）
+  - [x] 2.2 实现复习调度逻辑（计算下次复习时间）
+  - [x] 2.3 实现 FlashcardService 业务逻辑（收藏、分组、搜索）
+  - [x] 2.4 实现学习会话管理服务（StudySessionService.ts）
+  - [x] 2.5 实现统计分析服务（AnalyticsService.ts）
+
+- [ ] **阶段 3：UI 界面 (3-4天)**
+  - [ ] 3.1 创建 Flashcard 列表页（网格布局、搜索、筛选）
+  - [ ] 3.2 创建学习模式界面（卡片翻转、答题按钮 Again/Hard/Good/Easy）
+  - [ ] 3.3 实现快捷键支持（1234 答题，空格翻转）
+  - [ ] 3.4 创建统计仪表盘（今日任务、掌握度分布、学习曲线）
+  - [ ] 3.5 实现 UI 组件库（FlashcardCard, ProficiencyBadge, ProgressRing）
+
+- [ ] **阶段 4：集成与优化 (1-2天)**
+  - [ ] 4.1 在划词翻译和 Popup 添加收藏按钮
+  - [ ] 4.2 添加页面路由和底部导航
+  - [ ] 4.3 实现 Chrome Alarms 复习提醒
+  - [ ] 4.4 实现数据导入导出（JSON + 可选 Anki 格式）
+
+**其他功能增强**
 - [ ] 输入框快速翻译（右键菜单）
 - [ ] 翻译历史记录管理
 - [ ] 多语言发音与例句

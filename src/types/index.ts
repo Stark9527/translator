@@ -49,3 +49,6 @@ export interface TranslationHistory {
   timestamp: number;
   favorite?: boolean;
 }
+
+// 导出 Flashcard 相关类型
+export * from './flashcard';
