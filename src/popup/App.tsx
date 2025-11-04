@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import type { TranslateResult, UserConfig } from '@/types';
+import { useState, useEffect, useRef } from 'react';
+import type { TranslateResult, UserConfig, LanguageCode } from '@/types';
 import { Icon } from '@/components/ui/icon';
-import { Volume2, Copy } from 'lucide-react';
+import { Volume2, Copy, ArrowLeftRight } from 'lucide-react';
+import { SUPPORTED_LANGUAGES } from '@/utils/constants';
 
 export default function App() {
   const [inputText, setInputText] = useState('');
@@ -9,25 +10,55 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<UserConfig | null>(null);
+  const [sourceLang, setSourceLang] = useState<LanguageCode>('auto');
+  const [targetLang, setTargetLang] = useState<LanguageCode>('zh-CN');
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     // 加载配置
     loadConfig();
   }, []);
 
+  // 当语言切换时，如果译文存在则将译文移到输入框并重新翻译
+  useEffect(() => {
+    // 第一次加载时不触发
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (!isApiKeyConfigured()) return;
+
+    // 如果有译文，将译文移到输入框作为新的原文
+    if (translationResult) {
+      const newText = translationResult.translation;
+      setInputText(newText);
+      setTranslationResult(null);
+      // 立即使用新文本进行翻译
+      handleTranslate(newText);
+    } else if (inputText.trim()) {
+      // 如果没有译文但有输入内容，直接翻译
+      handleTranslate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLang, targetLang]);
+
   const loadConfig = async () => {
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_CONFIG' });
       if (response.success && response.data) {
         setConfig(response.data);
+        setSourceLang(response.data.defaultSourceLang || 'auto');
+        setTargetLang(response.data.defaultTargetLang || 'zh-CN');
       }
     } catch (error) {
       console.error('Failed to load config:', error);
     }
   };
 
-  const handleTranslate = async () => {
-    if (!inputText.trim()) return;
+  const handleTranslate = async (textToTranslate?: string) => {
+    const text = textToTranslate ?? inputText;
+    if (!text.trim()) return;
 
     setIsLoading(true);
     setError(null);
@@ -37,9 +68,9 @@ export default function App() {
       const response = await chrome.runtime.sendMessage({
         type: 'TRANSLATE',
         payload: {
-          text: inputText,
-          from: config?.defaultSourceLang || 'auto',
-          to: config?.defaultTargetLang || 'zh-CN',
+          text,
+          from: sourceLang,
+          to: targetLang,
         },
       });
 
@@ -59,6 +90,13 @@ export default function App() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
+      handleTranslate();
+    }
+  };
+
+  // 输入框失焦时自动翻译
+  const handleBlur = () => {
+    if (inputText.trim() && isApiKeyConfigured()) {
       handleTranslate();
     }
   };
@@ -106,6 +144,30 @@ export default function App() {
     }
   };
 
+  // 交换源语言和目标语言
+  const handleSwapLanguages = () => {
+    // 如果源语言是自动检测，不允许交换
+    if (sourceLang === 'auto') return;
+
+    // 交换语言
+    const temp = sourceLang;
+    setSourceLang(targetLang);
+    setTargetLang(temp);
+
+    // 如果有译文，也交换输入框和译文的内容
+    if (translationResult) {
+      const newText = translationResult.translation;
+      setInputText(newText);
+      setTranslationResult(null);
+    }
+  };
+
+  // 获取语言名称
+  const getLanguageName = (code: LanguageCode) => {
+    const lang = SUPPORTED_LANGUAGES.find(l => l.code === code);
+    return lang?.name || code;
+  };
+
   return (
     <div className="w-[400px] h-[500px] p-4 bg-background flex flex-col">
       {/* 标题 */}
@@ -114,6 +176,42 @@ export default function App() {
         <p className="text-sm text-muted-foreground">
           {config ? `当前引擎: ${config.engine === 'google' ? 'Google 翻译' : config.engine}` : '加载中...'}
         </p>
+      </div>
+
+      {/* 语言选择器 */}
+      <div className="mb-3 flex items-center gap-2 p-2 bg-muted rounded-md">
+        <select
+          value={sourceLang}
+          onChange={e => setSourceLang(e.target.value as LanguageCode)}
+          className="flex-1 px-2 py-1.5 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {SUPPORTED_LANGUAGES.map(lang => (
+            <option key={lang.code} value={lang.code}>
+              {lang.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={handleSwapLanguages}
+          disabled={sourceLang === 'auto'}
+          className="p-1.5 hover:bg-accent rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title={sourceLang === 'auto' ? '自动检测时无法切换' : '切换语言'}
+        >
+          <Icon icon={ArrowLeftRight} size="sm" className="text-muted-foreground hover:text-foreground" />
+        </button>
+
+        <select
+          value={targetLang}
+          onChange={e => setTargetLang(e.target.value as LanguageCode)}
+          className="flex-1 px-2 py-1.5 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {SUPPORTED_LANGUAGES.filter(lang => lang.code !== 'auto').map(lang => (
+            <option key={lang.code} value={lang.code}>
+              {lang.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* API Key 未配置提示 */}
@@ -132,15 +230,15 @@ export default function App() {
       )}
 
       {/* 输入区域 */}
-      <div className="flex-1 flex flex-col gap-3 min-h-0">
+      <div className="flex-1 flex flex-col gap-4 min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium text-foreground">
               输入文本
             </label>
             {inputText.trim() && (
               <button
-                onClick={() => handleSpeak(inputText, config?.defaultSourceLang)}
+                onClick={() => handleSpeak(inputText, sourceLang !== 'auto' ? sourceLang : undefined)}
                 className="p-1 hover:bg-accent rounded-md transition-colors"
                 title="朗读原文"
               >
@@ -150,31 +248,24 @@ export default function App() {
           </div>
           <textarea
             className="flex-1 p-3 border border-input rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-            placeholder="请输入要翻译的文本... (Ctrl/Cmd + Enter 翻译)"
+            placeholder="输入文本后失焦自动翻译，或按 Ctrl/Cmd + Enter"
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
           />
         </div>
 
-        <button
-          onClick={handleTranslate}
-          disabled={isLoading || !inputText.trim() || !isApiKeyConfigured()}
-          className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity text-sm font-medium"
-        >
-          {isLoading ? '翻译中...' : '翻译'}
-        </button>
-
         {/* 翻译结果区域 */}
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-1.5">
             <label className="text-sm font-medium text-foreground">
               翻译结果
             </label>
             {translationResult && (
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => handleSpeak(translationResult.translation, translationResult.to)}
+                  onClick={() => handleSpeak(translationResult.translation, targetLang)}
                   className="p-1 hover:bg-accent rounded-md transition-colors"
                   title="朗读译文"
                 >
@@ -203,7 +294,7 @@ export default function App() {
                 <p className="text-sm text-foreground">{translationResult.translation}</p>
                 <div className="pt-2 border-t border-border text-xs text-muted-foreground">
                   <span>
-                    {translationResult.from} → {translationResult.to}
+                    {getLanguageName(translationResult.from)} → {getLanguageName(translationResult.to)}
                   </span>
                   <span className="mx-2">•</span>
                   <span>{translationResult.engine}</span>

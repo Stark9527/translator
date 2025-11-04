@@ -165,9 +165,9 @@ translator-extension/
 
 详细的开发计划请查看 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 
-### 当前状态：MVP 开发中 (Week 1-2)
+### 当前状态：功能增强开发中 (Week 4-6)
 
-#### ✅ 已完成
+#### ✅ 已完成 - 第一阶段：MVP 核心功能 (Week 1-3)
 
 **基础架构 (Week 1)**
 - [x] 项目脚手架搭建 (Vite + React + TypeScript)
@@ -182,9 +182,7 @@ translator-extension/
 - [x] Options 设置页面 (引擎选择、API Key 配置)
 - [x] Background Service Worker 基础框架
 
-#### 🚧 进行中 (Week 2 - MVP 核心功能)
-
-**P0 - 翻译核心能力（阻塞 MVP）**
+**P0 - 翻译核心能力**
 - [x] Google Cloud Translation API v2 服务层实现
 - [x] 翻译引擎抽象接口设计
 - [x] Background 翻译逻辑完善
@@ -193,26 +191,24 @@ translator-extension/
 - [x] 错误处理与用户提示
 - [x] 划词翻译功能接入真实翻译
 
-**P1 - 性能与体验优化 (Week 3)**
+**P1 - 性能与体验优化**
 - [x] 复制译文功能
 - [x] 文本朗读 (TTS)
 - [x] IndexedDB 翻译缓存系统（两层缓存：内存 + 持久化）
 - [x] Chrome Storage 配置管理（配置验证、导入/导出、Quota 监控、版本管理）
 - [x] Shadow DOM 样式隔离优化（内联样式、:host 重置、完全隔离）
-- [ ] 加载动画与状态反馈
 
-#### 📋 待开发功能
-
-**第二阶段：功能增强 (Week 4-6)**
-- [ ] DeepL API 集成
-- [ ] 网页全文翻译（双语对照模式）
+#### 🚧 进行中 - 第二阶段：功能增强 (Week 4-6)
+- [ ] 生词本功能（收藏与分组）
 - [ ] 输入框快速翻译（右键菜单）
 - [ ] 翻译历史记录管理
-- [ ] 生词本功能（收藏与分组）
 - [ ] 多语言发音与例句
 - [ ] 翻译配额监控与提醒
 
+#### 📋 待开发功能
+
 **第三阶段：高级特性 (Week 7+)**
+- [ ] 网页全文翻译（双语对照模式）
 - [ ] AI 增强模式 (LLM 接入)
 - [ ] 专业术语库管理
 - [ ] 云同步 (历史、生词本、配置)
