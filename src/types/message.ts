@@ -25,6 +25,30 @@ export interface SaveConfigMessage extends BaseMessage {
   payload: { config: UserConfig };
 }
 
+// 重置配置消息
+export interface ResetConfigMessage extends BaseMessage {
+  type: 'RESET_CONFIG';
+  payload: null;
+}
+
+// 导出配置消息
+export interface ExportConfigMessage extends BaseMessage {
+  type: 'EXPORT_CONFIG';
+  payload: null;
+}
+
+// 导入配置消息
+export interface ImportConfigMessage extends BaseMessage {
+  type: 'IMPORT_CONFIG';
+  payload: { configJson: string };
+}
+
+// 获取存储配额消息
+export interface GetStorageQuotaMessage extends BaseMessage {
+  type: 'GET_STORAGE_QUOTA';
+  payload: null;
+}
+
 // 测试连接消息
 export interface PingMessage extends BaseMessage {
   type: 'PING';
@@ -37,11 +61,22 @@ export interface TriggerTranslateMessage extends BaseMessage {
   payload: null;
 }
 
+// 存储配额信息
+export interface StorageQuotaInfo {
+  used: number;
+  total: number;
+  percentage: number;
+}
+
 // 所有消息类型的联合类型
 export type Message =
   | TranslateMessage
   | GetConfigMessage
   | SaveConfigMessage
+  | ResetConfigMessage
+  | ExportConfigMessage
+  | ImportConfigMessage
+  | GetStorageQuotaMessage
   | PingMessage
   | TriggerTranslateMessage;
 
@@ -52,6 +87,14 @@ export type MessageResponse<T extends Message> = T extends TranslateMessage
   ? UserConfig
   : T extends SaveConfigMessage
   ? { success: boolean }
+  : T extends ResetConfigMessage
+  ? { success: boolean }
+  : T extends ExportConfigMessage
+  ? string
+  : T extends ImportConfigMessage
+  ? { success: boolean }
+  : T extends GetStorageQuotaMessage
+  ? StorageQuotaInfo
   : T extends PingMessage
   ? { message: string }
   : never;

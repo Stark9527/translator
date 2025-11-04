@@ -20,6 +20,15 @@ export default function App() {
     message: string;
   } | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const [quotaInfo, setQuotaInfo] = useState<{
+    used: number;
+    total: number;
+    percentage: number;
+  } | null>(null);
+  const [advancedMessage, setAdvancedMessage] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
 
   // 检查是否是欢迎页面
   const isWelcome = new URLSearchParams(window.location.search).get('welcome') === 'true';
@@ -27,6 +36,8 @@ export default function App() {
   useEffect(() => {
     // 加载保存的配置
     loadConfig();
+    // 加载存储配额信息
+    loadQuotaInfo();
   }, []);
 
   const loadConfig = async () => {
@@ -37,6 +48,17 @@ export default function App() {
       }
     } catch (error) {
       console.error('Failed to load config:', error);
+    }
+  };
+
+  const loadQuotaInfo = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_STORAGE_QUOTA' });
+      if (response.success && response.data) {
+        setQuotaInfo(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load quota info:', error);
     }
   };
 
@@ -126,6 +148,87 @@ export default function App() {
   const handleApiKeyChange = (key: 'googleApiKey' | 'deeplApiKey', value: string) => {
     setConfig({ ...config, [key]: value });
     setTestResult(null); // 清除测试结果
+  };
+
+  const handleExportConfig = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'EXPORT_CONFIG' });
+      if (response.success && response.data) {
+        // 创建下载链接
+        const blob = new Blob([response.data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `translator-config-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        setAdvancedMessage({ type: 'success', message: '配置已导出' });
+        setTimeout(() => setAdvancedMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Failed to export config:', error);
+      setAdvancedMessage({ type: 'error', message: '导出失败' });
+      setTimeout(() => setAdvancedMessage(null), 3000);
+    }
+  };
+
+  const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const response = await chrome.runtime.sendMessage({
+        type: 'IMPORT_CONFIG',
+        payload: { configJson: text },
+      });
+
+      if (response.success) {
+        setAdvancedMessage({ type: 'success', message: '配置已导入' });
+        setTimeout(() => setAdvancedMessage(null), 3000);
+        // 重新加载配置
+        await loadConfig();
+        await loadQuotaInfo();
+      } else {
+        setAdvancedMessage({ type: 'error', message: `导入失败：${response.error || '未知错误'}` });
+        setTimeout(() => setAdvancedMessage(null), 5000);
+      }
+    } catch (error) {
+      console.error('Failed to import config:', error);
+      setAdvancedMessage({
+        type: 'error',
+        message: `导入失败：${error instanceof Error ? error.message : '未知错误'}`,
+      });
+      setTimeout(() => setAdvancedMessage(null), 5000);
+    }
+
+    // 清除文件选择
+    event.target.value = '';
+  };
+
+  const handleResetConfig = async () => {
+    if (!confirm('确定要重置所有设置为默认值吗？此操作不可撤销！')) {
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'RESET_CONFIG' });
+      if (response.success) {
+        setAdvancedMessage({ type: 'success', message: '配置已重置为默认值' });
+        setTimeout(() => setAdvancedMessage(null), 3000);
+        // 重新加载配置
+        await loadConfig();
+        await loadQuotaInfo();
+      } else {
+        setAdvancedMessage({ type: 'error', message: '重置失败' });
+        setTimeout(() => setAdvancedMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Failed to reset config:', error);
+      setAdvancedMessage({ type: 'error', message: '重置失败' });
+      setTimeout(() => setAdvancedMessage(null), 3000);
+    }
   };
 
   return (
@@ -370,6 +473,89 @@ export default function App() {
                 <option value="ru">俄语</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* 高级设置 */}
+        <div className="bg-card border border-border rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold text-foreground mb-4">高级设置</h2>
+
+          {/* 存储配额 */}
+          {quotaInfo && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-foreground">存储配额使用</span>
+                <span className="text-sm text-muted-foreground">
+                  {quotaInfo.used} / {quotaInfo.total} 字节 ({quotaInfo.percentage}%)
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all ${
+                    quotaInfo.percentage > 90
+                      ? 'bg-red-500'
+                      : quotaInfo.percentage > 70
+                      ? 'bg-yellow-500'
+                      : 'bg-green-500'
+                  }`}
+                  style={{ width: `${quotaInfo.percentage}%` }}
+                ></div>
+              </div>
+              {quotaInfo.percentage > 90 && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                  ⚠️ 存储空间即将耗尽，建议清理数据
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 配置管理按钮 */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportConfig}
+                className="flex-1 px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity"
+              >
+                📤 导出配置
+              </button>
+              <label className="flex-1 px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity text-center cursor-pointer">
+                📥 导入配置
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportConfig}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={handleResetConfig}
+              className="w-full px-4 py-2 text-sm bg-destructive text-destructive-foreground rounded-md hover:opacity-90 transition-opacity"
+            >
+              🔄 重置为默认设置
+            </button>
+          </div>
+
+          {/* 高级操作消息 */}
+          {advancedMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                advancedMessage.type === 'success'
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+                  : advancedMessage.type === 'error'
+                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+                  : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+              }`}
+            >
+              {advancedMessage.message}
+            </div>
+          )}
+
+          <div className="mt-4 p-3 bg-muted rounded-md text-xs text-muted-foreground space-y-1">
+            <p><strong>导出配置：</strong>将当前设置保存为 JSON 文件</p>
+            <p><strong>导入配置：</strong>从 JSON 文件恢复设置</p>
+            <p><strong>重置设置：</strong>将所有设置恢复为默认值</p>
           </div>
         </div>
 

@@ -1,2 +1,2 @@
 // 配置服务导出
-export { ConfigService } from './ConfigService';
+export { ConfigService, ConfigValidationError, StorageQuotaError } from './ConfigService';

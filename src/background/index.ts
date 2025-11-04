@@ -2,7 +2,7 @@
 import type { Message } from '@/types/message';
 import type { UserConfig } from '@/types';
 import { TranslationManager } from '@/services/translation/TranslationManager';
-import { ConfigService } from '@/services/config/ConfigService';
+import { ConfigService, ConfigValidationError, StorageQuotaError } from '@/services/config/ConfigService';
 
 console.info('Background service worker started');
 
@@ -62,8 +62,50 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
     case 'SAVE_CONFIG': {
       // 保存用户配置
       const { config } = payload as { config: UserConfig };
-      await ConfigService.saveConfig(config);
+      try {
+        await ConfigService.saveConfig(config);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ConfigValidationError) {
+          throw new Error(`配置验证失败: ${error.message}`);
+        }
+        if (error instanceof StorageQuotaError) {
+          throw new Error(`存储空间不足: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+
+    case 'RESET_CONFIG': {
+      // 重置配置为默认值
+      await ConfigService.resetConfig();
       return { success: true };
+    }
+
+    case 'EXPORT_CONFIG': {
+      // 导出配置
+      const configJson = await ConfigService.exportConfig();
+      return configJson;
+    }
+
+    case 'IMPORT_CONFIG': {
+      // 导入配置
+      const { configJson } = payload as { configJson: string };
+      try {
+        await ConfigService.importConfig(configJson);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ConfigValidationError) {
+          throw new Error(`配置导入失败: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+
+    case 'GET_STORAGE_QUOTA': {
+      // 获取存储配额信息
+      const quota = await ConfigService.getStorageQuota();
+      return quota;
     }
 
     case 'TRANSLATE': {
