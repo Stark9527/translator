@@ -1,6 +1,16 @@
 // FSRS 算法服务
-import { FSRS, generatorParameters, Card, Rating, State, RecordLog } from 'ts-fsrs';
-import type { FSRSConfig, ProficiencyLevel } from '@/types/flashcard';
+import {
+  FSRS,
+  generatorParameters,
+  createEmptyCard,
+  type Card,
+  Rating,
+  State,
+  type RecordLog,
+  type RecordLogItem,
+  type Grade
+} from 'ts-fsrs';
+import { ProficiencyLevel, type FSRSConfig } from '@/types/flashcard';
 
 /**
  * FSRS 服务
@@ -25,7 +35,7 @@ export class FSRSService {
    * 创建新卡片
    */
   createCard(): Card {
-    return this.fsrs.createEmptyCard();
+    return createEmptyCard();
   }
 
   /**
@@ -34,7 +44,7 @@ export class FSRSService {
    * @param rating 用户评分（Again/Hard/Good/Easy）
    * @returns 更新后的卡片状态和复习记录
    */
-  review(card: Card, rating: Rating, now?: Date): { card: Card; log: RecordLog } {
+  review(card: Card, rating: Grade, now?: Date): RecordLogItem {
     const reviewDate = now || new Date();
     const recordLog = this.fsrs.repeat(card, reviewDate);
 
@@ -43,12 +53,7 @@ export class FSRSService {
     // Hard (2): 困难
     // Good (3): 良好
     // Easy (4): 简单
-    const result = recordLog[rating];
-
-    return {
-      card: result.card,
-      log: result.log,
-    };
+    return recordLog[rating];
   }
 
   /**
@@ -56,24 +61,9 @@ export class FSRSService {
    * @param card 当前卡片
    * @returns 四个选项的结果
    */
-  getSchedulingInfo(
-    card: Card,
-    now?: Date
-  ): {
-    again: { card: Card; log: RecordLog };
-    hard: { card: Card; log: RecordLog };
-    good: { card: Card; log: RecordLog };
-    easy: { card: Card; log: RecordLog };
-  } {
+  getSchedulingInfo(card: Card, now?: Date): RecordLog {
     const reviewDate = now || new Date();
-    const recordLog = this.fsrs.repeat(card, reviewDate);
-
-    return {
-      again: recordLog[Rating.Again],
-      hard: recordLog[Rating.Hard],
-      good: recordLog[Rating.Good],
-      easy: recordLog[Rating.Easy],
-    };
+    return this.fsrs.repeat(card, reviewDate);
   }
 
   /**
@@ -84,12 +74,12 @@ export class FSRSService {
   calculateProficiency(card: Card): ProficiencyLevel {
     // 新卡片
     if (card.state === State.New) {
-      return 'new';
+      return ProficiencyLevel.New;
     }
 
     // 学习中
     if (card.state === State.Learning || card.state === State.Relearning) {
-      return 'learning';
+      return ProficiencyLevel.Learning;
     }
 
     // 复习中
@@ -100,13 +90,13 @@ export class FSRSService {
       const intervalDays = (nextReview.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
 
       if (intervalDays > 30) {
-        return 'mastered';
+        return ProficiencyLevel.Mastered;
       }
 
-      return 'review';
+      return ProficiencyLevel.Review;
     }
 
-    return 'new';
+    return ProficiencyLevel.New;
   }
 
   /**
@@ -157,13 +147,13 @@ export class FSRSService {
 
   /**
    * 获取推荐的评分（用于自动评分）
-   * @param card 当前卡片
+   * @param _card 当前卡片（保留参数以便未来扩展）
    * @param isCorrect 是否答对
    * @param difficulty 难度（optional: 'easy' | 'hard'）
    * @returns 推荐的评分
    */
   getRecommendedRating(
-    card: Card,
+    _card: Card,
     isCorrect: boolean,
     difficulty?: 'easy' | 'hard'
   ): Rating {
@@ -186,7 +176,8 @@ export class FSRSService {
    * 获取评分对应的描述文本
    */
   getRatingLabel(rating: Rating): string {
-    const labels = {
+    const labels: Record<Rating, string> = {
+      [Rating.Manual]: 'Manual',
       [Rating.Again]: 'Again',
       [Rating.Hard]: 'Hard',
       [Rating.Good]: 'Good',
@@ -199,7 +190,8 @@ export class FSRSService {
    * 获取评分对应的中文描述
    */
   getRatingLabelCN(rating: Rating): string {
-    const labels = {
+    const labels: Record<Rating, string> = {
+      [Rating.Manual]: '手动',
       [Rating.Again]: '重来',
       [Rating.Hard]: '困难',
       [Rating.Good]: '良好',

@@ -91,7 +91,7 @@ export class FlashcardDB {
 
         // 创建 dailyStats 存储（每日统计）
         if (!db.objectStoreNames.contains(this.STORES.dailyStats)) {
-          const statsStore = db.createObjectStore(this.STORES.dailyStats, {
+          db.createObjectStore(this.STORES.dailyStats, {
             keyPath: 'date',
           });
 
@@ -546,12 +546,11 @@ export class FlashcardDB {
         'readwrite'
       );
 
-      const promises = [
-        transaction.objectStore(this.STORES.flashcards).clear(),
-        transaction.objectStore(this.STORES.groups).clear(),
-        transaction.objectStore(this.STORES.reviews).clear(),
-        transaction.objectStore(this.STORES.dailyStats).clear(),
-      ];
+      // 清空所有数据库
+      transaction.objectStore(this.STORES.flashcards).clear();
+      transaction.objectStore(this.STORES.groups).clear();
+      transaction.objectStore(this.STORES.reviews).clear();
+      transaction.objectStore(this.STORES.dailyStats).clear();
 
       transaction.oncomplete = () => {
         console.info('FlashcardDB cleared');

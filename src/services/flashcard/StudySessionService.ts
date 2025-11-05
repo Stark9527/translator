@@ -2,7 +2,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import type { Flashcard, StudySession, ReviewRecord, DailyStats } from '@/types/flashcard';
-import type { CardRating } from '@/types/flashcard';
+import type { Grade } from 'ts-fsrs';
 import { flashcardDB } from './FlashcardDB';
 import { flashcardService } from './FlashcardService';
 import { fsrsService } from './FSRSService';
@@ -116,7 +116,7 @@ export class StudySessionService {
    * @param rating 用户评分 (Again/Hard/Good/Easy)
    * @param responseTime 答题时长（毫秒）
    */
-  async submitAnswer(rating: CardRating, responseTime: number): Promise<void> {
+  async submitAnswer(rating: Grade, responseTime: number): Promise<void> {
     if (!this.currentSession || this.currentSession.status !== 'active') {
       throw new Error('No active study session');
     }
@@ -381,7 +381,6 @@ export class StudySessionService {
     let tempStreak = 0;
 
     // 从今天开始往前计算
-    const today = format(new Date(), 'yyyy-MM-dd');
     let checkDate = new Date();
 
     // 计算当前连续天数

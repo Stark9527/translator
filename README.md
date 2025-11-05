@@ -214,16 +214,16 @@ translator-extension/
   - [x] 2.4 实现学习会话管理服务（StudySessionService.ts）
   - [x] 2.5 实现统计分析服务（AnalyticsService.ts）
 
-- [ ] **阶段 3：UI 界面 (3-4天)**
-  - [ ] 3.1 创建 Flashcard 列表页（网格布局、搜索、筛选）
-  - [ ] 3.2 创建学习模式界面（卡片翻转、答题按钮 Again/Hard/Good/Easy）
-  - [ ] 3.3 实现快捷键支持（1234 答题，空格翻转）
-  - [ ] 3.4 创建统计仪表盘（今日任务、掌握度分布、学习曲线）
-  - [ ] 3.5 实现 UI 组件库（FlashcardCard, ProficiencyBadge, ProgressRing）
+- [x] **阶段 3：UI 界面 (3-4天)** ✅
+  - [x] 3.1 创建 Flashcard 列表页（网格布局、搜索、筛选）
+  - [x] 3.2 创建学习模式界面（卡片翻转、答题按钮 Again/Hard/Good/Easy）
+  - [x] 3.3 实现快捷键支持（1234 答题，空格翻转）
+  - [x] 3.4 创建统计仪表盘（今日任务、掌握度分布、学习曲线）
+  - [x] 3.5 实现 UI 组件库（FlashcardCard, ProficiencyBadge, ProgressRing）
 
 - [ ] **阶段 4：集成与优化 (1-2天)**
   - [ ] 4.1 在划词翻译和 Popup 添加收藏按钮
-  - [ ] 4.2 添加页面路由和底部导航
+  - [x] 4.2 添加页面路由和底部导航 ✅
   - [ ] 4.3 实现 Chrome Alarms 复习提醒
   - [ ] 4.4 实现数据导入导出（JSON + 可选 Anki 格式）
 

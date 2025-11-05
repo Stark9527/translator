@@ -1,6 +1,6 @@
 // 统计分析服务
 import { format, subDays } from 'date-fns';
-import type { Flashcard, OverallStats, DailyStats, ProficiencyLevel } from '@/types/flashcard';
+import type { Flashcard, OverallStats } from '@/types/flashcard';
 import { flashcardDB } from './FlashcardDB';
 import { flashcardService } from './FlashcardService';
 import { studySessionService } from './StudySessionService';

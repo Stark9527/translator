@@ -1,5 +1,5 @@
 // Flashcard 类型定义
-import type { Card, RecordLog, Rating, State } from 'ts-fsrs';
+import type { Card, ReviewLog, Rating, State } from 'ts-fsrs';
 import type { LanguageCode, TranslationEngine } from './index';
 
 /**
@@ -87,9 +87,9 @@ export interface Flashcard extends FlashcardData {
 
 /**
  * 复习记录
- * 使用 ts-fsrs 的 RecordLog
+ * 扩展 ts-fsrs 的 ReviewLog
  */
-export interface ReviewRecord extends RecordLog {
+export interface ReviewRecord extends ReviewLog {
   flashcardId: string;           // 所属卡片 ID
   responseTime: number;          // 答题时长（毫秒）
 }
