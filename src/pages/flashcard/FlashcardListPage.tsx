@@ -218,70 +218,79 @@ export default function FlashcardListPage() {
         </div>
 
         {/* 筛选和排序 */}
-        <div className="flex items-center gap-1.5 text-xs">
-          {/* 分组筛选 */}
-          <select
-            value={selectedGroupId}
-            onChange={(e) => setSelectedGroupId(e.target.value)}
-            className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
-          >
-            <option value="all">全部分组</option>
-            {groups.map(group => (
-              <option key={group.id} value={group.id}>
-                {group.name} ({group.cardCount})
-              </option>
-            ))}
-          </select>
+        <div className="space-y-2 text-xs">
+          {/* 第一行：分组、熟练度、排序、收藏 */}
+          <div className="flex items-center gap-1.5">
+            {/* 分组筛选 */}
+            <select
+              value={selectedGroupId}
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+              className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
+            >
+              <option value="all">全部分组</option>
+              {groups.map(group => (
+                <option key={group.id} value={group.id}>
+                  {group.name} ({group.cardCount})
+                </option>
+              ))}
+            </select>
 
-          {/* 熟练度筛选 */}
-          <select
-            value={selectedProficiency}
-            onChange={(e) => setSelectedProficiency(e.target.value as ProficiencyLevel | 'all')}
-            className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
-          >
-            {proficiencyOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            {/* 熟练度筛选 */}
+            <select
+              value={selectedProficiency}
+              onChange={(e) => setSelectedProficiency(e.target.value as ProficiencyLevel | 'all')}
+              className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
+            >
+              {proficiencyOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-          {/* 排序按钮 */}
-          <button
-            onClick={toggleSortOrder}
-            className="p-1 hover:bg-accent rounded transition-colors flex-shrink-0"
-            title={sortOrder === 'asc' ? '升序' : '降序'}
-          >
-            <Icon icon={SortAsc} size="xs" className={cn('text-muted-foreground transition-transform', sortOrder === 'desc' && 'rotate-180')} />
-          </button>
+            {/* 分隔符 */}
+            <div className="w-px h-5 bg-border" />
 
-          {/* 排序方式 */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
-          >
-            {sortOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            {/* 排序方式 */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
+            >
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-          {/* 只显示收藏 */}
-          <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap flex-shrink-0">
-            <input
-              type="checkbox"
-              checked={showFavoriteOnly}
-              onChange={(e) => setShowFavoriteOnly(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-muted-foreground">仅收藏</span>
-          </label>
+            {/* 排序按钮 */}
+            <button
+              onClick={toggleSortOrder}
+              className="p-1 hover:bg-accent rounded transition-colors flex-shrink-0"
+              title={sortOrder === 'asc' ? '升序' : '降序'}
+            >
+              <Icon icon={SortAsc} size="xs" className={cn('text-muted-foreground transition-transform', sortOrder === 'desc' && 'rotate-180')} />
+            </button>
 
-          {/* 统计 */}
-          <div className="ml-auto text-muted-foreground whitespace-nowrap flex-shrink-0">
-            {filteredCards.length} / {flashcards.length} 张
+            {/* 只显示收藏 */}
+            <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={showFavoriteOnly}
+                onChange={(e) => setShowFavoriteOnly(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-muted-foreground">仅收藏</span>
+            </label>
+          </div>
+
+          {/* 第二行：统计 */}
+          <div className="flex items-center justify-end">
+            {/* 统计 */}
+            <div className="text-muted-foreground whitespace-nowrap">
+              {filteredCards.length} / {flashcards.length} 张
+            </div>
           </div>
         </div>
       </div>
