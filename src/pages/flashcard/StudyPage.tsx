@@ -243,7 +243,7 @@ export default function StudyPage() {
 
         {/* 答题按钮（只在翻转后显示） */}
         {isFlipped && (
-          <div className="mt-8 flex gap-3">
+          <div className="mt-4 flex gap-3">
             {ratingButtons.map(({ rating, label, shortcut, color }) => (
               <button
                 key={rating}

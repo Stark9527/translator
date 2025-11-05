@@ -1,32 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Edit2, Trash2, Folder, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Folder } from 'lucide-react';
 import type { FlashcardGroup } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
 import { Icon } from '@/components/ui/icon';
-import { cn } from '@/utils/cn';
-
-const GROUP_COLORS = [
-  { value: '#ef4444', label: '红色' },
-  { value: '#f97316', label: '橙色' },
-  { value: '#eab308', label: '黄色' },
-  { value: '#22c55e', label: '绿色' },
-  { value: '#06b6d4', label: '青色' },
-  { value: '#3b82f6', label: '蓝色' },
-  { value: '#8b5cf6', label: '紫色' },
-  { value: '#ec4899', label: '粉色' },
-  { value: '#64748b', label: '灰色' },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function GroupManagePage() {
   const navigate = useNavigate();
   const [groups, setGroups] = useState<FlashcardGroup[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<FlashcardGroup | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; group: FlashcardGroup } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    color: GROUP_COLORS[0].value,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -55,10 +50,9 @@ export default function GroupManagePage() {
     try {
       await flashcardService.createGroup(formData.name, {
         description: formData.description || undefined,
-        color: formData.color,
       });
 
-      setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+      setFormData({ name: '', description: '' });
       setShowModal(false);
       await loadGroups();
     } catch (error) {
@@ -77,10 +71,9 @@ export default function GroupManagePage() {
       await flashcardService.updateGroup(editingGroup.id, {
         name: formData.name,
         description: formData.description || undefined,
-        color: formData.color,
       });
 
-      setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+      setFormData({ name: '', description: '' });
       setShowModal(false);
       setEditingGroup(null);
       await loadGroups();
@@ -96,13 +89,17 @@ export default function GroupManagePage() {
       return;
     }
 
-    if (!confirm(`确定要删除分组「${group.name}」吗？\n该分组的卡片将移动到默认分组。`)) {
-      return;
-    }
+    // 显示删除确认对话框
+    setDeleteModal({ show: true, group });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
 
     try {
-      await flashcardService.deleteGroup(group.id);
+      await flashcardService.deleteGroup(deleteModal.group.id);
       await loadGroups();
+      setDeleteModal(null);
     } catch (error) {
       console.error('Failed to delete group:', error);
       alert('删除分组失败');
@@ -111,7 +108,7 @@ export default function GroupManagePage() {
 
   const openCreateModal = () => {
     setEditingGroup(null);
-    setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+    setFormData({ name: '', description: '' });
     setShowModal(true);
   };
 
@@ -120,7 +117,6 @@ export default function GroupManagePage() {
     setFormData({
       name: group.name,
       description: group.description || '',
-      color: group.color || GROUP_COLORS[0].value,
     });
     setShowModal(true);
   };
@@ -128,7 +124,7 @@ export default function GroupManagePage() {
   const closeModal = () => {
     setShowModal(false);
     setEditingGroup(null);
-    setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+    setFormData({ name: '', description: '' });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -187,12 +183,6 @@ export default function GroupManagePage() {
               key={group.id}
               className="flex items-center gap-3 p-4 border border-border rounded-lg bg-card hover:bg-accent/50 transition-colors"
             >
-              {/* 颜色标识 */}
-              <div
-                className="w-4 h-4 rounded-full flex-shrink-0"
-                style={{ backgroundColor: group.color || '#64748b' }}
-              />
-
               {/* 分组信息 */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -242,103 +232,84 @@ export default function GroupManagePage() {
         </div>
       </div>
 
-      {/* 创建/编辑模态框 */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={closeModal}
-        >
-          <div
-            className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 模态框头部 */}
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="text-base font-semibold text-foreground">
-                {editingGroup ? '编辑分组' : '创建新分组'}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="p-1 hover:bg-accent rounded transition-colors"
-              >
-                <Icon icon={X} size="sm" className="text-muted-foreground" />
-              </button>
+      {/* 创建/编辑对话框 */}
+      <Dialog open={showModal} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{editingGroup ? '编辑分组' : '创建新分组'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                分组名称 <span className="text-destructive">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="例如：工作、生活、考试..."
+                className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                autoFocus
+              />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                描述（可选）
+              </label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="简要描述这个分组..."
+                className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
+              >
+                {editingGroup ? '更新' : '创建'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            {/* 模态框内容 */}
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                  分组名称 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="例如：工作、生活、考试..."
-                  className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                  描述（可选）
-                </label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="简要描述这个分组..."
-                  className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-2">
-                  颜色标识
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {GROUP_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, color: color.value })}
-                      className={cn(
-                        'w-9 h-9 rounded-full border-2 transition-all relative',
-                        formData.color === color.value
-                          ? 'border-foreground scale-110'
-                          : 'border-transparent hover:scale-105'
-                      )}
-                      style={{ backgroundColor: color.value }}
-                      title={color.label}
-                    >
-                      {formData.color === color.value && (
-                        <Icon icon={Check} size="xs" className="absolute inset-0 m-auto text-white" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 按钮 */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
-                >
-                  {editingGroup ? '更新' : '创建'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 删除确认对话框 */}
+      <Dialog open={deleteModal?.show} onOpenChange={(open) => !open && setDeleteModal(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              确定要删除分组「<span className="font-medium text-foreground">{deleteModal?.group.name}</span>」吗？
+              <br />
+              该分组的卡片将移动到默认分组。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              onClick={() => setDeleteModal(null)}
+              className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
+            >
+              删除
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

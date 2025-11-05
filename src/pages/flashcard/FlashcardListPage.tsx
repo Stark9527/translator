@@ -7,6 +7,14 @@ import { flashcardService } from '@/services/flashcard';
 import { FlashcardCard } from '@/components/flashcard/FlashcardCard';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/utils/cn';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const proficiencyOptions: { value: ProficiencyLevel | 'all'; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -36,6 +44,10 @@ export default function FlashcardListPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFavoriteOnly, setShowFavoriteOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // 模态框状态
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; cardId: string; cardWord: string } | null>(null);
+  const [moveModal, setMoveModal] = useState<{ show: boolean; cardId: string; cardWord: string; currentGroupId: string } | null>(null);
 
   // 当从其他页面返回时重新加载数据
   useEffect(() => {
@@ -140,11 +152,23 @@ export default function FlashcardListPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const card = flashcards.find(c => c.id === id);
+    if (!card) return;
+
+    // 显示删除确认模态框
+    setDeleteModal({ show: true, cardId: id, cardWord: card.word });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
+
     try {
-      await flashcardService.delete(id);
+      await flashcardService.delete(deleteModal.cardId);
       await loadFlashcards();
+      setDeleteModal(null);
     } catch (error) {
       console.error('Failed to delete flashcard:', error);
+      alert('删除失败，请重试');
     }
   };
 
@@ -152,25 +176,21 @@ export default function FlashcardListPage() {
     const card = flashcards.find(c => c.id === cardId);
     if (!card) return;
 
-    const selected = prompt(
-      `将「${card.word}」移动到：\n当前分组：${groups.find(g => g.id === card.groupId)?.name || '未知'}\n\n可选分组：\n${groups.filter(g => g.id !== card.groupId).map(g => `- ${g.name}`).join('\n')}\n\n请输入分组名称：`
-    );
+    // 显示移动分组模态框
+    setMoveModal({ show: true, cardId, cardWord: card.word, currentGroupId: card.groupId });
+  };
 
-    if (!selected) return;
-
-    const targetGroup = groups.find(g => g.name === selected.trim());
-    if (!targetGroup) {
-      alert('分组不存在');
-      return;
-    }
+  const confirmMoveToGroup = async (targetGroupId: string) => {
+    if (!moveModal) return;
 
     try {
-      await flashcardService.moveToGroup(cardId, targetGroup.id);
+      await flashcardService.moveToGroup(moveModal.cardId, targetGroupId);
       await loadFlashcards();
       await loadGroups();
+      setMoveModal(null);
     } catch (error) {
       console.error('Failed to move to group:', error);
-      alert('移动失败');
+      alert('移动失败，请重试');
     }
   };
 
@@ -318,7 +338,6 @@ export default function FlashcardListPage() {
                   key={card.id}
                   flashcard={card}
                   groupName={group?.name}
-                  groupColor={group?.color}
                   onToggleFavorite={handleToggleFavorite}
                   onDelete={handleDelete}
                   onMoveToGroup={handleMoveToGroup}
@@ -328,6 +347,68 @@ export default function FlashcardListPage() {
           </div>
         )}
       </div>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={deleteModal?.show} onOpenChange={(open) => !open && setDeleteModal(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              确定要删除卡片「<span className="font-medium text-foreground">{deleteModal?.cardWord}</span>」吗？此操作无法撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              onClick={() => setDeleteModal(null)}
+              className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
+            >
+              删除
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 移动分组对话框 */}
+      <Dialog open={moveModal?.show} onOpenChange={(open) => !open && setMoveModal(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>移动到分组</DialogTitle>
+            <DialogDescription>
+              将「<span className="font-medium text-foreground">{moveModal?.cardWord}</span>」移动到：
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-auto py-4">
+            {groups
+              .filter(g => g.id !== moveModal?.currentGroupId)
+              .map(group => (
+                <button
+                  key={group.id}
+                  onClick={() => confirmMoveToGroup(group.id)}
+                  className="w-full px-3 py-2 text-left text-sm border border-input rounded-md hover:bg-accent transition-colors"
+                >
+                  <div className="font-medium text-foreground">{group.name}</div>
+                  {group.description && (
+                    <div className="text-xs text-muted-foreground mt-0.5">{group.description}</div>
+                  )}
+                </button>
+              ))}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setMoveModal(null)}
+              className="w-full px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
+            >
+              取消
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

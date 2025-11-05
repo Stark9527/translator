@@ -10,7 +10,6 @@ import { cn } from '@/utils/cn';
 interface FlashcardCardProps {
   flashcard: Flashcard;
   groupName?: string;       // 分组名称
-  groupColor?: string;      // 分组颜色
   onToggleFavorite?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (id: string) => void;
@@ -21,7 +20,6 @@ interface FlashcardCardProps {
 export function FlashcardCard({
   flashcard,
   groupName,
-  groupColor,
   onToggleFavorite,
   onDelete,
   onEdit,
@@ -125,10 +123,6 @@ export function FlashcardCard({
           {/* 分组标签 */}
           {groupName && (
             <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded border border-border">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: groupColor || '#64748b' }}
-              />
               <Icon icon={Folder} size="xs" className="text-muted-foreground" />
               <span className="text-muted-foreground">{groupName}</span>
             </div>
@@ -164,7 +158,7 @@ export function FlashcardCard({
         </div>
 
         {/* 操作按钮 */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1">
           {onMoveToGroup && (
             <button
               onClick={(e) => {
@@ -193,9 +187,7 @@ export function FlashcardCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm(`确定要删除「${flashcard.word}」吗？`)) {
-                  onDelete(flashcard.id);
-                }
+                onDelete(flashcard.id);
               }}
               className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
               title="删除"

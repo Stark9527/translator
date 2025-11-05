@@ -1,27 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Edit2, Trash2, Folder, Check } from 'lucide-react';
+import { X, Edit2, Trash2, Folder } from 'lucide-react';
 import type { FlashcardGroup } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
 import { Icon } from '@/components/ui/icon';
-import { cn } from '@/utils/cn';
 
 interface GroupManageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGroupsChanged?: () => void;
 }
-
-const GROUP_COLORS = [
-  { value: '#ef4444', label: '红色' },
-  { value: '#f97316', label: '橙色' },
-  { value: '#eab308', label: '黄色' },
-  { value: '#22c55e', label: '绿色' },
-  { value: '#06b6d4', label: '青色' },
-  { value: '#3b82f6', label: '蓝色' },
-  { value: '#8b5cf6', label: '紫色' },
-  { value: '#ec4899', label: '粉色' },
-  { value: '#64748b', label: '灰色' },
-];
 
 export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupManageModalProps) {
   const [groups, setGroups] = useState<FlashcardGroup[]>([]);
@@ -30,7 +17,6 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    color: GROUP_COLORS[0].value,
   });
 
   useEffect(() => {
@@ -57,10 +43,9 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
     try {
       await flashcardService.createGroup(formData.name, {
         description: formData.description || undefined,
-        color: formData.color,
       });
 
-      setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+      setFormData({ name: '', description: '' });
       setIsEditing(false);
       await loadGroups();
       onGroupsChanged?.();
@@ -80,10 +65,9 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
       await flashcardService.updateGroup(editingGroup.id, {
         name: formData.name,
         description: formData.description || undefined,
-        color: formData.color,
       });
 
-      setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+      setFormData({ name: '', description: '' });
       setIsEditing(false);
       setEditingGroup(null);
       await loadGroups();
@@ -119,14 +103,13 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
     setFormData({
       name: group.name,
       description: group.description || '',
-      color: group.color || GROUP_COLORS[0].value,
     });
     setIsEditing(true);
   };
 
   const cancelEdit = () => {
     setEditingGroup(null);
-    setFormData({ name: '', description: '', color: GROUP_COLORS[0].value });
+    setFormData({ name: '', description: '' });
     setIsEditing(false);
   };
 
@@ -187,30 +170,6 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
                   className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-2">颜色</label>
-                <div className="flex gap-2 flex-wrap">
-                  {GROUP_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, color: color.value })}
-                      className={cn(
-                        'w-8 h-8 rounded-full border-2 transition-all relative',
-                        formData.color === color.value
-                          ? 'border-foreground scale-110'
-                          : 'border-transparent hover:scale-105'
-                      )}
-                      style={{ backgroundColor: color.value }}
-                      title={color.label}
-                    >
-                      {formData.color === color.value && (
-                        <Icon icon={Check} size="xs" className="absolute inset-0 m-auto text-white" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
@@ -240,12 +199,6 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
                   key={group.id}
                   className="flex items-center gap-3 p-3 border border-border rounded-lg hover:bg-accent transition-colors"
                 >
-                  {/* 颜色标识 */}
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: group.color || '#64748b' }}
-                  />
-
                   {/* 分组信息 */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
