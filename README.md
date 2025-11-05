@@ -222,10 +222,11 @@ translator-extension/
   - [x] 3.5 实现 UI 组件库（FlashcardCard, ProficiencyBadge, ProgressRing）
 
 - [ ] **阶段 4：集成与优化 (1-2天)**
-  - [ ] 4.1 在划词翻译和 Popup 添加收藏按钮
-  - [x] 4.2 添加页面路由和底部导航 ✅
-  - [ ] 4.3 实现 Chrome Alarms 复习提醒
-  - [ ] 4.4 实现数据导入导出（JSON + 可选 Anki 格式）
+  - [x] 4.1 在Popup的翻译页面对接FlashCard ✅
+  - [ ] 4.2 在划词翻译对接FlashCard
+  - [x] 4.3 添加页面路由和底部导航 ✅
+  - [ ] 4.4 实现 Chrome Alarms 复习提醒
+  - [ ] 4.5 实现数据导入导出（JSON + 可选 Anki 格式）
 
 **其他功能增强**
 - [ ] 输入框快速翻译（右键菜单）

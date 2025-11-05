@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TranslateResult, UserConfig, LanguageCode } from '@/types';
 import { Icon } from '@/components/ui/icon';
-import { Volume2, Copy, ArrowLeftRight } from 'lucide-react';
+import { Volume2, Copy, ArrowLeftRight, BookmarkPlus } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/utils/constants';
+import { flashcardService } from '@/services/flashcard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function TranslatePage() {
   const [inputText, setInputText] = useState('');
@@ -12,6 +14,8 @@ export default function TranslatePage() {
   const [config, setConfig] = useState<UserConfig | null>(null);
   const [sourceLang, setSourceLang] = useState<LanguageCode>('auto');
   const [targetLang, setTargetLang] = useState<LanguageCode>('zh-CN');
+  const [isSavingFlashcard, setIsSavingFlashcard] = useState(false);
+  const [saveFlashcardMessage, setSaveFlashcardMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const isInitialMount = useRef(true);
 
   useEffect(() => {
@@ -144,6 +148,32 @@ export default function TranslatePage() {
     }
   };
 
+  const handleSaveToFlashcard = async () => {
+    if (!translationResult) return;
+
+    setIsSavingFlashcard(true);
+    setSaveFlashcardMessage(null);
+
+    try {
+      await flashcardService.createFromTranslation(translationResult, {
+        groupId: 'default'
+      });
+      setSaveFlashcardMessage({ type: 'success', text: '已保存到FlashCard' });
+      // 3秒后自动清除提示
+      setTimeout(() => setSaveFlashcardMessage(null), 3000);
+    } catch (error) {
+      console.error('Save flashcard error:', error);
+      setSaveFlashcardMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : '保存失败，请重试'
+      });
+      // 5秒后自动清除错误提示
+      setTimeout(() => setSaveFlashcardMessage(null), 5000);
+    } finally {
+      setIsSavingFlashcard(false);
+    }
+  };
+
   // 交换源语言和目标语言
   const handleSwapLanguages = () => {
     // 如果源语言是自动检测，不允许交换
@@ -169,14 +199,15 @@ export default function TranslatePage() {
   };
 
   return (
-    <div className="flex-1 p-4 flex flex-col overflow-auto">
-      {/* 标题 */}
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground">智能翻译助手</h1>
-        <p className="text-sm text-muted-foreground">
-          {config ? `当前引擎: ${config.engine === 'google' ? 'Google 翻译' : config.engine}` : '加载中...'}
-        </p>
-      </div>
+    <TooltipProvider>
+      <div className="flex-1 p-4 flex flex-col overflow-auto">
+        {/* 标题 */}
+        <div className="mb-4">
+          <h1 className="text-xl font-bold text-foreground">智能翻译助手</h1>
+          <p className="text-sm text-muted-foreground">
+            {config ? `当前引擎: ${config.engine === 'google' ? 'Google 翻译' : config.engine}` : '加载中...'}
+          </p>
+        </div>
 
       {/* 语言选择器 */}
       <div className="mb-3 flex items-center gap-2 p-2 bg-muted rounded-md">
@@ -237,13 +268,19 @@ export default function TranslatePage() {
               输入文本
             </label>
             {inputText.trim() && (
-              <button
-                onClick={() => handleSpeak(inputText, sourceLang !== 'auto' ? sourceLang : undefined)}
-                className="p-1 hover:bg-accent rounded-md transition-colors"
-                title="朗读原文"
-              >
-                <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSpeak(inputText, sourceLang !== 'auto' ? sourceLang : undefined)}
+                    className="p-1 hover:bg-accent rounded-md transition-colors"
+                  >
+                    <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>朗读原文</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           <textarea
@@ -264,20 +301,46 @@ export default function TranslatePage() {
             </label>
             {translationResult && (
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleSpeak(translationResult.translation, targetLang)}
-                  className="p-1 hover:bg-accent rounded-md transition-colors"
-                  title="朗读译文"
-                >
-                  <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
-                </button>
-                <button
-                  onClick={() => handleCopy(translationResult.translation)}
-                  className="p-1 hover:bg-accent rounded-md transition-colors"
-                  title="复制译文"
-                >
-                  <Icon icon={Copy} size="sm" className="text-muted-foreground hover:text-foreground" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSpeak(translationResult.translation, targetLang)}
+                      className="p-1 hover:bg-accent rounded-md transition-colors"
+                    >
+                      <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>朗读译文</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleCopy(translationResult.translation)}
+                      className="p-1 hover:bg-accent rounded-md transition-colors"
+                    >
+                      <Icon icon={Copy} size="sm" className="text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>复制译文</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleSaveToFlashcard}
+                      disabled={isSavingFlashcard}
+                      className="p-1 hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isSavingFlashcard ? '保存中...' : '添加到卡片库'}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </div>
@@ -299,6 +362,16 @@ export default function TranslatePage() {
                   <span className="mx-2">•</span>
                   <span>{translationResult.engine}</span>
                 </div>
+                {saveFlashcardMessage && (
+                  <div className={`mt-2 p-2 rounded-md text-xs ${
+                    saveFlashcardMessage.type === 'success'
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
+                    {saveFlashcardMessage.type === 'success' ? '✓ ' : '✗ '}
+                    {saveFlashcardMessage.text}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">翻译结果将在这里显示</p>
@@ -307,5 +380,6 @@ export default function TranslatePage() {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
