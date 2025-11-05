@@ -3,6 +3,7 @@ import type { Message } from '@/types/message';
 import type { UserConfig } from '@/types';
 import { TranslationManager } from '@/services/translation/TranslationManager';
 import { ConfigService, ConfigValidationError, StorageQuotaError } from '@/services/config/ConfigService';
+import { flashcardService } from '@/services/flashcard';
 
 console.info('Background service worker started');
 
@@ -15,12 +16,17 @@ chrome.runtime.onInstalled.addListener(async details => {
     const defaultConfig = ConfigService.getDefaultConfig();
     await ConfigService.saveConfig(defaultConfig);
 
+    // 初始化默认分组
+    await flashcardService.ensureDefaultGroup();
+
     // 打开欢迎页面
     chrome.tabs.create({
       url: chrome.runtime.getURL('src/options/index.html?welcome=true'),
     });
   } else if (details.reason === 'update') {
     console.info('Extension updated');
+    // 更新时也确保默认分组存在（兼容旧版本）
+    await flashcardService.ensureDefaultGroup();
   }
 });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, SortAsc, Plus, Library } from 'lucide-react';
-import type { Flashcard } from '@/types/flashcard';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Search, SortAsc, Library, Settings } from 'lucide-react';
+import type { Flashcard, FlashcardGroup } from '@/types/flashcard';
 import { ProficiencyLevel } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
 import { FlashcardCard } from '@/components/flashcard/FlashcardCard';
@@ -23,25 +24,36 @@ const sortOptions = [
 ];
 
 export default function FlashcardListPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [filteredCards, setFilteredCards] = useState<Flashcard[]>([]);
+  const [groups, setGroups] = useState<FlashcardGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProficiency, setSelectedProficiency] = useState<ProficiencyLevel | 'all'>('all');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'nextReview' | 'word'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFavoriteOnly, setShowFavoriteOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 加载卡片
+  // 当从其他页面返回时重新加载数据
   useEffect(() => {
-    loadFlashcards();
-  }, []);
+    if (location.pathname === '/flashcards') {
+      const initialize = async () => {
+        await flashcardService.ensureDefaultGroup();
+        await Promise.all([loadFlashcards(), loadGroups()]);
+      };
+      initialize();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // 应用筛选和排序
   useEffect(() => {
     applyFiltersAndSort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flashcards, searchQuery, selectedProficiency, sortBy, sortOrder, showFavoriteOnly]);
+  }, [flashcards, searchQuery, selectedProficiency, selectedGroupId, sortBy, sortOrder, showFavoriteOnly]);
 
   const loadFlashcards = async () => {
     setIsLoading(true);
@@ -52,6 +64,15 @@ export default function FlashcardListPage() {
       console.error('Failed to load flashcards:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadGroups = async () => {
+    try {
+      const allGroups = await flashcardService.getAllGroups();
+      setGroups(allGroups);
+    } catch (error) {
+      console.error('Failed to load groups:', error);
     }
   };
 
@@ -72,6 +93,11 @@ export default function FlashcardListPage() {
     // 筛选熟练度
     if (selectedProficiency !== 'all') {
       result = result.filter(card => card.proficiency === selectedProficiency);
+    }
+
+    // 筛选分组
+    if (selectedGroupId !== 'all') {
+      result = result.filter(card => card.groupId === selectedGroupId);
     }
 
     // 只显示收藏
@@ -122,6 +148,32 @@ export default function FlashcardListPage() {
     }
   };
 
+  const handleMoveToGroup = async (cardId: string) => {
+    const card = flashcards.find(c => c.id === cardId);
+    if (!card) return;
+
+    const selected = prompt(
+      `将「${card.word}」移动到：\n当前分组：${groups.find(g => g.id === card.groupId)?.name || '未知'}\n\n可选分组：\n${groups.filter(g => g.id !== card.groupId).map(g => `- ${g.name}`).join('\n')}\n\n请输入分组名称：`
+    );
+
+    if (!selected) return;
+
+    const targetGroup = groups.find(g => g.name === selected.trim());
+    if (!targetGroup) {
+      alert('分组不存在');
+      return;
+    }
+
+    try {
+      await flashcardService.moveToGroup(cardId, targetGroup.id);
+      await loadFlashcards();
+      await loadGroups();
+    } catch (error) {
+      console.error('Failed to move to group:', error);
+      alert('移动失败');
+    }
+  };
+
   const toggleSortOrder = () => {
     setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
   };
@@ -143,66 +195,81 @@ export default function FlashcardListPage() {
       <div className="p-4 border-b border-border bg-background">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold text-foreground">卡片库</h1>
-          <button className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:opacity-90 transition-opacity flex items-center gap-1">
-            <Icon icon={Plus} size="xs" />
-            <span>新建</span>
+          <button
+            onClick={() => navigate('/flashcards/groups')}
+            className="px-3 py-1.5 bg-muted text-foreground text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-1"
+            title="管理分组"
+          >
+            <Icon icon={Settings} size="xs" />
+            <span>分组</span>
           </button>
         </div>
 
         {/* 搜索框 */}
         <div className="relative mb-3">
-          <Icon icon={Search} size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Icon icon={Search} size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="搜索单词、翻译或标签..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
         {/* 筛选和排序 */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* 熟练度筛选 */}
-          <div className="flex items-center gap-1 text-xs">
-            <Icon icon={Filter} size="xs" className="text-muted-foreground" />
-            <select
-              value={selectedProficiency}
-              onChange={(e) => setSelectedProficiency(e.target.value as ProficiencyLevel | 'all')}
-              className="px-2 py-1 text-xs border border-input rounded bg-background"
-            >
-              {proficiencyOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-1.5 text-xs">
+          {/* 分组筛选 */}
+          <select
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+            className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
+          >
+            <option value="all">全部分组</option>
+            {groups.map(group => (
+              <option key={group.id} value={group.id}>
+                {group.name} ({group.cardCount})
+              </option>
+            ))}
+          </select>
 
-          {/* 排序 */}
-          <div className="flex items-center gap-1 text-xs">
-            <button
-              onClick={toggleSortOrder}
-              className="p-1 hover:bg-accent rounded transition-colors"
-              title={sortOrder === 'asc' ? '升序' : '降序'}
-            >
-              <Icon icon={SortAsc} size="xs" className={cn('text-muted-foreground transition-transform', sortOrder === 'desc' && 'rotate-180')} />
-            </button>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="px-2 py-1 text-xs border border-input rounded bg-background"
-            >
-              {sortOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* 熟练度筛选 */}
+          <select
+            value={selectedProficiency}
+            onChange={(e) => setSelectedProficiency(e.target.value as ProficiencyLevel | 'all')}
+            className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
+          >
+            {proficiencyOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {/* 排序按钮 */}
+          <button
+            onClick={toggleSortOrder}
+            className="p-1 hover:bg-accent rounded transition-colors flex-shrink-0"
+            title={sortOrder === 'asc' ? '升序' : '降序'}
+          >
+            <Icon icon={SortAsc} size="xs" className={cn('text-muted-foreground transition-transform', sortOrder === 'desc' && 'rotate-180')} />
+          </button>
+
+          {/* 排序方式 */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
+          >
+            {sortOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
 
           {/* 只显示收藏 */}
-          <label className="flex items-center gap-1 text-xs cursor-pointer">
+          <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap flex-shrink-0">
             <input
               type="checkbox"
               checked={showFavoriteOnly}
@@ -213,8 +280,8 @@ export default function FlashcardListPage() {
           </label>
 
           {/* 统计 */}
-          <div className="ml-auto text-xs text-muted-foreground">
-            {filteredCards.length} / {flashcards.length} 张卡片
+          <div className="ml-auto text-muted-foreground whitespace-nowrap flex-shrink-0">
+            {filteredCards.length} / {flashcards.length} 张
           </div>
         </div>
       </div>
@@ -235,14 +302,20 @@ export default function FlashcardListPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {filteredCards.map(card => (
-              <FlashcardCard
-                key={card.id}
-                flashcard={card}
-                onToggleFavorite={handleToggleFavorite}
-                onDelete={handleDelete}
-              />
-            ))}
+            {filteredCards.map(card => {
+              const group = groups.find(g => g.id === card.groupId);
+              return (
+                <FlashcardCard
+                  key={card.id}
+                  flashcard={card}
+                  groupName={group?.name}
+                  groupColor={group?.color}
+                  onToggleFavorite={handleToggleFavorite}
+                  onDelete={handleDelete}
+                  onMoveToGroup={handleMoveToGroup}
+                />
+              );
+            })}
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Star, Trash2, Edit2, Volume2 } from 'lucide-react';
+import { Star, Trash2, Edit2, Volume2, Folder, FolderInput } from 'lucide-react';
 import type { Flashcard } from '@/types/flashcard';
 import { Icon } from '@/components/ui/icon';
 import { ProficiencyBadge } from './ProficiencyBadge';
@@ -9,17 +9,23 @@ import { cn } from '@/utils/cn';
 
 interface FlashcardCardProps {
   flashcard: Flashcard;
+  groupName?: string;       // 分组名称
+  groupColor?: string;      // 分组颜色
   onToggleFavorite?: (id: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onMoveToGroup?: (id: string) => void;  // 移动到分组
   onClick?: (id: string) => void;
 }
 
 export function FlashcardCard({
   flashcard,
+  groupName,
+  groupColor,
   onToggleFavorite,
   onDelete,
   onEdit,
+  onMoveToGroup,
   onClick,
 }: FlashcardCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -111,10 +117,22 @@ export function FlashcardCard({
         </p>
       )}
 
-      {/* 底部：徽章 + 标签 + 操作 */}
+      {/* 底部：徽章 + 分组 + 标签 + 操作 */}
       <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
         <div className="flex items-center gap-2 flex-wrap">
           <ProficiencyBadge level={flashcard.proficiency} />
+
+          {/* 分组标签 */}
+          {groupName && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded border border-border">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: groupColor || '#64748b' }}
+              />
+              <Icon icon={Folder} size="xs" className="text-muted-foreground" />
+              <span className="text-muted-foreground">{groupName}</span>
+            </div>
+          )}
 
           <span
             className={cn(
@@ -147,6 +165,18 @@ export function FlashcardCard({
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onMoveToGroup && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveToGroup(flashcard.id);
+              }}
+              className="p-1.5 hover:bg-accent rounded transition-colors"
+              title="移动到分组"
+            >
+              <Icon icon={FolderInput} size="xs" className="text-muted-foreground" />
+            </button>
+          )}
           {onEdit && (
             <button
               onClick={(e) => {
