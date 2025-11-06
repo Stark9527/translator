@@ -5,6 +5,18 @@ import { Volume2, Copy, ArrowLeftRight, BookmarkPlus } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/utils/constants';
 import { flashcardService } from '@/services/flashcard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PageHeader } from '@/components/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function TranslatePage() {
   const [inputText, setInputText] = useState('');
@@ -156,7 +168,7 @@ export default function TranslatePage() {
 
     try {
       await flashcardService.createFromTranslation(translationResult, {
-        groupId: 'default'
+        groupId: config?.defaultFlashcardGroupId || 'default'
       });
       setSaveFlashcardMessage({ type: 'success', text: '已保存到FlashCard' });
       // 3秒后自动清除提示
@@ -201,185 +213,198 @@ export default function TranslatePage() {
   return (
     <TooltipProvider>
       <div className="flex-1 p-4 flex flex-col overflow-auto">
-        {/* 标题 */}
-        <div className="mb-4">
-          <h1 className="text-xl font-bold text-foreground">智能翻译助手</h1>
-          <p className="text-sm text-muted-foreground">
-            {config ? `当前引擎: ${config.engine === 'google' ? 'Google 翻译' : config.engine}` : '加载中...'}
-          </p>
-        </div>
+        {/* 页面标题 */}
+        <PageHeader
+          title="智能翻译助手"
+          subtitle={config ? `当前引擎: ${config.engine === 'google' ? 'Google 翻译' : config.engine}` : '加载中...'}
+        />
 
-      {/* 语言选择器 */}
-      <div className="mb-3 flex items-center gap-2 p-2 bg-muted rounded-md">
-        <select
-          value={sourceLang}
-          onChange={e => setSourceLang(e.target.value as LanguageCode)}
-          className="flex-1 px-2 py-1.5 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {SUPPORTED_LANGUAGES.map(lang => (
-            <option key={lang.code} value={lang.code}>
-              {lang.name}
-            </option>
-          ))}
-        </select>
+        {/* 语言选择器 */}
+        <div className="mb-3 flex items-center gap-2 p-2 bg-muted rounded-md">
+          <Select value={sourceLang} onValueChange={(value) => setSourceLang(value as LanguageCode)}>
+            <SelectTrigger className="flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_LANGUAGES.map(lang => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <button
-          onClick={handleSwapLanguages}
-          disabled={sourceLang === 'auto'}
-          className="p-1.5 hover:bg-accent rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          title={sourceLang === 'auto' ? '自动检测时无法切换' : '切换语言'}
-        >
-          <Icon icon={ArrowLeftRight} size="sm" className="text-muted-foreground hover:text-foreground" />
-        </button>
-
-        <select
-          value={targetLang}
-          onChange={e => setTargetLang(e.target.value as LanguageCode)}
-          className="flex-1 px-2 py-1.5 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {SUPPORTED_LANGUAGES.filter(lang => lang.code !== 'auto').map(lang => (
-            <option key={lang.code} value={lang.code}>
-              {lang.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* API Key 未配置提示 */}
-      {config && !isApiKeyConfigured() && (
-        <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            ⚠️ 请先在设置中配置 API Key
-          </p>
-          <button
-            onClick={() => chrome.runtime.openOptionsPage()}
-            className="mt-2 text-xs text-primary hover:underline"
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSwapLanguages}
+            disabled={sourceLang === 'auto'}
+            title={sourceLang === 'auto' ? '自动检测时无法切换' : '切换语言'}
           >
-            前往设置 →
-          </button>
-        </div>
-      )}
+            <Icon icon={ArrowLeftRight} size="sm" className="text-muted-foreground" />
+          </Button>
 
-      {/* 输入和翻译结果区域 */}
-      <div className="flex-1 flex flex-col gap-4 min-h-0">
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm font-medium text-foreground">
-              输入文本
-            </label>
-            {inputText.trim() && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSpeak(inputText, sourceLang !== 'auto' ? sourceLang : undefined)}
-                    className="p-1 hover:bg-accent rounded-md transition-colors"
-                  >
-                    <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>朗读原文</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-          <textarea
-            className="flex-1 p-3 border border-input rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-            placeholder="输入文本后失焦自动翻译，或按 Ctrl/Cmd + Enter"
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={handleBlur}
-          />
+          <Select value={targetLang} onValueChange={(value) => setTargetLang(value as LanguageCode)}>
+            <SelectTrigger className="flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_LANGUAGES.filter(lang => lang.code !== 'auto').map(lang => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* 翻译结果区域 */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm font-medium text-foreground">
-              翻译结果
-            </label>
-            {translationResult && (
-              <div className="flex items-center gap-1">
+        {/* API Key 未配置提示 */}
+        {config && !isApiKeyConfigured() && (
+          <Alert variant="warning" className="mb-3">
+            <AlertDescription>
+              <p className="text-sm">
+                ⚠️ 请先在设置中配置 API Key
+              </p>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => chrome.runtime.openOptionsPage()}
+                className="p-0 h-auto text-xs mt-2"
+              >
+                前往设置 →
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* 输入和翻译结果区域 */}
+        <div className="flex-1 flex flex-col gap-4 min-h-0">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <Label className="text-sm font-medium">
+                输入文本
+              </Label>
+              {inputText.trim() && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleSpeak(translationResult.translation, targetLang)}
-                      className="p-1 hover:bg-accent rounded-md transition-colors"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleSpeak(inputText, sourceLang !== 'auto' ? sourceLang : undefined)}
                     >
-                      <Icon icon={Volume2} size="sm" className="text-muted-foreground hover:text-foreground" />
-                    </button>
+                      <Icon icon={Volume2} size="sm" className="text-muted-foreground" />
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>朗读译文</p>
+                    <p>朗读原文</p>
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleCopy(translationResult.translation)}
-                      className="p-1 hover:bg-accent rounded-md transition-colors"
-                    >
-                      <Icon icon={Copy} size="sm" className="text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>复制译文</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleSaveToFlashcard}
-                      disabled={isSavingFlashcard}
-                      className="p-1 hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{isSavingFlashcard ? '保存中...' : '添加到卡片库'}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            )}
+              )}
+            </div>
+            <Textarea
+              className="flex-1 resize-none text-sm"
+              placeholder="输入文本后失焦自动翻译，或按 Ctrl/Cmd + Enter"
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleBlur}
+            />
           </div>
-          <div className="flex-1 p-3 border border-input rounded-md bg-muted overflow-auto">
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground">翻译中...</p>
-            ) : error ? (
-              <div className="text-sm text-red-600 dark:text-red-400">
-                <p className="font-medium mb-1">翻译失败：</p>
-                <p>{error}</p>
-              </div>
-            ) : translationResult ? (
-              <div className="space-y-2">
-                <p className="text-sm text-foreground">{translationResult.translation}</p>
-                <div className="pt-2 border-t border-border text-xs text-muted-foreground">
-                  <span>
-                    {getLanguageName(translationResult.from)} → {getLanguageName(translationResult.to)}
-                  </span>
-                  <span className="mx-2">•</span>
-                  <span>{translationResult.engine}</span>
+
+          {/* 翻译结果区域 */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <Label className="text-sm font-medium">
+                翻译结果
+              </Label>
+              {translationResult && (
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleSpeak(translationResult.translation, targetLang)}
+                      >
+                        <Icon icon={Volume2} size="sm" className="text-muted-foreground" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>朗读译文</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleCopy(translationResult.translation)}
+                      >
+                        <Icon icon={Copy} size="sm" className="text-muted-foreground" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>复制译文</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={handleSaveToFlashcard}
+                        disabled={isSavingFlashcard}
+                      >
+                        <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isSavingFlashcard ? '保存中...' : '添加到卡片库'}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                {saveFlashcardMessage && (
-                  <div className={`mt-2 p-2 rounded-md text-xs ${
-                    saveFlashcardMessage.type === 'success'
-                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
-                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
-                  }`}>
-                    {saveFlashcardMessage.type === 'success' ? '✓ ' : '✗ '}
-                    {saveFlashcardMessage.text}
+              )}
+            </div>
+            <div className="flex-1 p-3 border border-input rounded-md bg-muted overflow-auto">
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground">翻译中...</p>
+              ) : error ? (
+                <Alert variant="destructive" className="border-0">
+                  <AlertDescription>
+                    <p className="font-medium mb-1">翻译失败：</p>
+                    <p className="text-sm">{error}</p>
+                  </AlertDescription>
+                </Alert>
+              ) : translationResult ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-foreground">{translationResult.translation}</p>
+                  <div className="pt-2 border-t border-border text-xs text-muted-foreground">
+                    <span>
+                      {getLanguageName(translationResult.from)} → {getLanguageName(translationResult.to)}
+                    </span>
+                    <span className="mx-2">•</span>
+                    <span>{translationResult.engine}</span>
                   </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">翻译结果将在这里显示</p>
-            )}
+                  {saveFlashcardMessage && (
+                    <Alert variant={saveFlashcardMessage.type === 'success' ? 'success' : 'destructive'} className="mt-2">
+                      <AlertDescription className="text-xs">
+                        {saveFlashcardMessage.type === 'success' ? '✓ ' : '✗ '}
+                        {saveFlashcardMessage.text}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">翻译结果将在这里显示</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }

@@ -36,6 +36,7 @@ export interface UserConfig {
   theme?: 'light' | 'dark' | 'auto';
   enableShortcut?: boolean;
   enableHistory?: boolean;
+  defaultFlashcardGroupId?: string;  // 默认的 Flashcard 分组 ID
 }
 
 // 翻译历史记录

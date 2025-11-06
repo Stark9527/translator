@@ -98,6 +98,30 @@
   }
 }
 
+/* Alert 淡入动画 */
+@keyframes alertFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Alert 淡出动画 */
+@keyframes alertFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+}
+
 /* Spinner 旋转动画 */
 @keyframes spin {
   from {
@@ -126,3 +150,19 @@
 .translator-popup-panel *::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+/* Button 组件的通用 hover 效果 */
+/* ghost variant - 默认按钮样式 */
+.translator-popup-panel button {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.translator-popup-panel button:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.translator-popup-panel button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+

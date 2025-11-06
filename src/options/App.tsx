@@ -1,5 +1,21 @@
 import { useState, useEffect } from 'react';
-import type { UserConfig, TranslationEngine } from '@/types';
+import type { UserConfig, TranslationEngine, LanguageCode } from '@/types';
+import type { FlashcardGroup } from '@/types/flashcard';
+import { flashcardService } from '@/services/flashcard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function App() {
   const [config, setConfig] = useState<UserConfig>({
@@ -29,6 +45,7 @@ export default function App() {
     type: 'success' | 'error' | 'info';
     message: string;
   } | null>(null);
+  const [flashcardGroups, setFlashcardGroups] = useState<FlashcardGroup[]>([]);
 
   // 检查是否是欢迎页面
   const isWelcome = new URLSearchParams(window.location.search).get('welcome') === 'true';
@@ -38,6 +55,8 @@ export default function App() {
     loadConfig();
     // 加载存储配额信息
     loadQuotaInfo();
+    // 加载 Flashcard 分组
+    loadFlashcardGroups();
   }, []);
 
   const loadConfig = async () => {
@@ -59,6 +78,16 @@ export default function App() {
       }
     } catch (error) {
       console.error('Failed to load quota info:', error);
+    }
+  };
+
+  const loadFlashcardGroups = async () => {
+    try {
+      await flashcardService.ensureDefaultGroup();
+      const groups = await flashcardService.getAllGroups();
+      setFlashcardGroups(groups);
+    } catch (error) {
+      console.error('Failed to load flashcard groups:', error);
     }
   };
 
@@ -190,6 +219,7 @@ export default function App() {
         // 重新加载配置
         await loadConfig();
         await loadQuotaInfo();
+        await loadFlashcardGroups();
       } else {
         setAdvancedMessage({ type: 'error', message: `导入失败：${response.error || '未知错误'}` });
         setTimeout(() => setAdvancedMessage(null), 5000);
@@ -220,6 +250,7 @@ export default function App() {
         // 重新加载配置
         await loadConfig();
         await loadQuotaInfo();
+        await loadFlashcardGroups();
       } else {
         setAdvancedMessage({ type: 'error', message: '重置失败' });
         setTimeout(() => setAdvancedMessage(null), 3000);
@@ -231,361 +262,361 @@ export default function App() {
     }
   };
 
+  const getQuotaColor = () => {
+    if (!quotaInfo) return 'bg-green-500';
+    if (quotaInfo.percentage > 90) return 'bg-red-500';
+    if (quotaInfo.percentage > 70) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-3xl mx-auto">
         {/* 欢迎信息 */}
         {isWelcome && (
-          <div className="mb-8 p-6 bg-primary/10 border border-primary/20 rounded-lg">
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              🎉 欢迎使用智能翻译助手！
-            </h2>
-            <p className="text-muted-foreground mb-3">
-              感谢安装！请先配置您的翻译设置，然后就可以开始使用了。
-            </p>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm">
-              <p className="text-yellow-800 dark:text-yellow-200">
-                <strong>重要提示：</strong> 使用 Google 翻译需要配置 Google Cloud Translation API Key。
-                <a
-                  href="https://cloud.google.com/translate/docs/setup"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline ml-1"
-                >
-                  点击查看如何获取
-                </a>
+          <Alert variant="info" className="mb-8">
+            <AlertDescription>
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                🎉 欢迎使用智能翻译助手！
+              </h2>
+              <p className="text-muted-foreground mb-3">
+                感谢安装！请先配置您的翻译设置，然后就可以开始使用了。
               </p>
-            </div>
-          </div>
+              <Alert variant="warning" className="text-sm">
+                <AlertDescription>
+                  <strong>重要提示：</strong> 使用 Google 翻译需要配置 Google Cloud Translation API Key。
+                  <a
+                    href="https://cloud.google.com/translate/docs/setup"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline ml-1"
+                  >
+                    点击查看如何获取
+                  </a>
+                </AlertDescription>
+              </Alert>
+            </AlertDescription>
+          </Alert>
         )}
 
-        {/* 标题 */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">设置</h1>
-          <p className="text-muted-foreground">配置您的翻译偏好和 API 密钥</p>
+        {/* 标题栏 - 包含保存按钮 */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">设置</h1>
+            <p className="text-muted-foreground">配置您的翻译偏好和 API 密钥</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {saveMessage && (
+              <span className="text-sm text-green-600 dark:text-green-400">
+                {saveMessage}
+              </span>
+            )}
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? '保存中...' : '保存设置'}
+            </Button>
+          </div>
         </div>
 
         {/* 翻译引擎选择 */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-foreground mb-4">翻译引擎</h2>
-
-          <div className="space-y-3">
-            <label className="flex items-center space-x-3 p-3 border border-border rounded-md hover:bg-accent cursor-pointer transition-colors">
-              <input
-                type="radio"
-                name="engine"
-                value="google"
-                checked={config.engine === 'google'}
-                onChange={e => handleEngineChange(e.target.value as TranslationEngine)}
-                className="w-4 h-4"
-              />
-              <div className="flex-1">
-                <div className="font-medium">Google Cloud Translation</div>
-                <div className="text-sm text-muted-foreground">
-                  官方 API、支持语言多、需要 API Key
-                </div>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl">翻译引擎</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup value={config.engine} onValueChange={(value) => handleEngineChange(value as TranslationEngine)}>
+              <div className="flex items-center space-x-3 p-3 border border-border rounded-md hover:bg-accent cursor-pointer transition-colors">
+                <RadioGroupItem value="google" id="google" />
+                <Label htmlFor="google" className="flex-1 cursor-pointer">
+                  <div className="font-medium">Google Cloud Translation</div>
+                  <div className="text-sm text-muted-foreground">
+                    官方 API、支持语言多、需要 API Key
+                  </div>
+                </Label>
               </div>
-            </label>
 
-            <label className="flex items-center space-x-3 p-3 border border-border rounded-md hover:bg-accent cursor-pointer opacity-50 transition-colors">
-              <input
-                type="radio"
-                name="engine"
-                value="deepl"
-                checked={config.engine === 'deepl'}
-                onChange={e => handleEngineChange(e.target.value as TranslationEngine)}
-                className="w-4 h-4"
-                disabled
-              />
-              <div className="flex-1">
-                <div className="font-medium">DeepL</div>
-                <div className="text-sm text-muted-foreground">
-                  翻译质量高、需要 API Key（即将支持）
-                </div>
+              <div className="flex items-center space-x-3 p-3 border border-border rounded-md opacity-50 transition-colors">
+                <RadioGroupItem value="deepl" id="deepl" disabled />
+                <Label htmlFor="deepl" className="flex-1">
+                  <div className="font-medium">DeepL</div>
+                  <div className="text-sm text-muted-foreground">
+                    翻译质量高、需要 API Key（即将支持）
+                  </div>
+                </Label>
               </div>
-            </label>
 
-            <label className="flex items-center space-x-3 p-3 border border-border rounded-md hover:bg-accent cursor-pointer opacity-50 transition-colors">
-              <input
-                type="radio"
-                name="engine"
-                value="openai"
-                checked={config.engine === 'openai'}
-                onChange={e => handleEngineChange(e.target.value as TranslationEngine)}
-                className="w-4 h-4"
-                disabled
-              />
-              <div className="flex-1">
-                <div className="font-medium">OpenAI</div>
-                <div className="text-sm text-muted-foreground">
-                  AI 驱动、上下文理解强（即将支持）
-                </div>
+              <div className="flex items-center space-x-3 p-3 border border-border rounded-md opacity-50 transition-colors">
+                <RadioGroupItem value="openai" id="openai" disabled />
+                <Label htmlFor="openai" className="flex-1">
+                  <div className="font-medium">OpenAI</div>
+                  <div className="text-sm text-muted-foreground">
+                    AI 驱动、上下文理解强（即将支持）
+                  </div>
+                </Label>
               </div>
-            </label>
-          </div>
-        </div>
+            </RadioGroup>
+          </CardContent>
+        </Card>
 
         {/* Google API Key */}
         {config.engine === 'google' && (
-          <div className="bg-card border border-border rounded-lg p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-foreground">Google Cloud Translation API Key</h2>
-              <button
-                onClick={handleTestApiKey}
-                disabled={isTesting || !config.googleApiKey?.trim()}
-                className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-              >
-                {isTesting ? '测试中...' : '测试 API Key'}
-              </button>
-            </div>
-
-            <input
-              type="password"
-              value={config.googleApiKey || ''}
-              onChange={e => handleApiKeyChange('googleApiKey', e.target.value)}
-              placeholder="请输入您的 Google Cloud Translation API Key"
-              className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
-            />
-
-            {/* 测试结果 */}
-            {testResult && (
-              <div
-                className={`mt-3 p-3 rounded-md text-sm ${
-                  testResult.type === 'success'
-                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-                    : testResult.type === 'error'
-                    ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-                    : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
-                }`}
-              >
-                {testResult.message}
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">Google Cloud Translation API Key</CardTitle>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleTestApiKey}
+                  disabled={isTesting || !config.googleApiKey?.trim()}
+                >
+                  {isTesting ? '测试中...' : '测试 API Key'}
+                </Button>
               </div>
-            )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                type="password"
+                value={config.googleApiKey || ''}
+                onChange={(e) => handleApiKeyChange('googleApiKey', e.target.value)}
+                placeholder="请输入您的 Google Cloud Translation API Key"
+                className="font-mono text-sm"
+              />
 
-            {/* 帮助信息 */}
-            <div className="mt-4 p-4 bg-muted rounded-md space-y-2 text-sm">
-              <p className="font-medium text-foreground">如何获取 Google Cloud Translation API Key：</p>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-2">
-                <li>
-                  访问{' '}
+              {/* 测试结果 */}
+              {testResult && (
+                <Alert variant={testResult.type === 'success' ? 'success' : testResult.type === 'error' ? 'destructive' : 'info'}>
+                  <AlertDescription>{testResult.message}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* 帮助信息 */}
+              <div className="p-4 bg-muted rounded-md space-y-2 text-sm">
+                <p className="font-medium text-foreground">如何获取 Google Cloud Translation API Key：</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-2">
+                  <li>
+                    访问{' '}
+                    <a
+                      href="https://console.cloud.google.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Google Cloud Console
+                    </a>
+                  </li>
+                  <li>创建或选择一个项目</li>
+                  <li>启用 "Cloud Translation API"</li>
+                  <li>在"凭据"页面创建 API 密钥</li>
+                  <li>（推荐）限制 API 密钥仅用于 Translation API</li>
+                </ol>
+                <p className="text-muted-foreground mt-2">
+                  <strong>注意：</strong> Google Cloud Translation API 是付费服务，但提供每月免费额度。
                   <a
-                    href="https://console.cloud.google.com/"
+                    href="https://cloud.google.com/translate/pricing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline"
+                    className="text-primary hover:underline ml-1"
                   >
-                    Google Cloud Console
+                    查看价格
                   </a>
-                </li>
-                <li>创建或选择一个项目</li>
-                <li>启用 "Cloud Translation API"</li>
-                <li>在"凭据"页面创建 API 密钥</li>
-                <li>（推荐）限制 API 密钥仅用于 Translation API</li>
-              </ol>
-              <p className="text-muted-foreground mt-2">
-                <strong>注意：</strong> Google Cloud Translation API 是付费服务，但提供每月免费额度。
-                <a
-                  href="https://cloud.google.com/translate/pricing"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline ml-1"
-                >
-                  查看价格
-                </a>
-              </p>
-            </div>
-          </div>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* DeepL API Key */}
         {config.engine === 'deepl' && (
-          <div className="bg-card border border-border rounded-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold text-foreground mb-4">DeepL API Key</h2>
-            <input
-              type="password"
-              value={config.deeplApiKey || ''}
-              onChange={e => handleApiKeyChange('deeplApiKey', e.target.value)}
-              placeholder="请输入您的 DeepL API Key"
-              className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring font-mono text-sm"
-              disabled
-            />
-            <p className="mt-2 text-sm text-muted-foreground">
-              获取 API Key：
-              <a
-                href="https://www.deepl.com/pro-api"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline ml-1"
-              >
-                DeepL API
-              </a>
-            </p>
-            <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
-              DeepL 翻译器即将支持，敬请期待...
-            </p>
-          </div>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-xl">DeepL API Key</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Input
+                type="password"
+                value={config.deeplApiKey || ''}
+                onChange={(e) => handleApiKeyChange('deeplApiKey', e.target.value)}
+                placeholder="请输入您的 DeepL API Key"
+                className="font-mono text-sm"
+                disabled
+              />
+              <p className="text-sm text-muted-foreground">
+                获取 API Key：
+                <a
+                  href="https://www.deepl.com/pro-api"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline ml-1"
+                >
+                  DeepL API
+                </a>
+              </p>
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                DeepL 翻译器即将支持，敬请期待...
+              </p>
+            </CardContent>
+          </Card>
         )}
 
         {/* 语言设置 */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-foreground mb-4">默认语言设置</h2>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl">默认设置</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>源语言</Label>
+                <Select
+                  value={config.defaultSourceLang}
+                  onValueChange={(value) => setConfig({ ...config, defaultSourceLang: value as LanguageCode })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">自动检测</SelectItem>
+                    <SelectItem value="zh-CN">简体中文</SelectItem>
+                    <SelectItem value="zh-TW">繁体中文</SelectItem>
+                    <SelectItem value="en">英语</SelectItem>
+                    <SelectItem value="ja">日语</SelectItem>
+                    <SelectItem value="ko">韩语</SelectItem>
+                    <SelectItem value="fr">法语</SelectItem>
+                    <SelectItem value="de">德语</SelectItem>
+                    <SelectItem value="es">西班牙语</SelectItem>
+                    <SelectItem value="ru">俄语</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                源语言
-              </label>
-              <select
-                value={config.defaultSourceLang}
-                onChange={e => setConfig({ ...config, defaultSourceLang: e.target.value as any })}
-                className="w-full p-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="auto">自动检测</option>
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁体中文</option>
-                <option value="en">英语</option>
-                <option value="ja">日语</option>
-                <option value="ko">韩语</option>
-                <option value="fr">法语</option>
-                <option value="de">德语</option>
-                <option value="es">西班牙语</option>
-                <option value="ru">俄语</option>
-              </select>
+              <div className="space-y-2">
+                <Label>目标语言</Label>
+                <Select
+                  value={config.defaultTargetLang}
+                  onValueChange={(value) => setConfig({ ...config, defaultTargetLang: value as LanguageCode })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zh-CN">简体中文</SelectItem>
+                    <SelectItem value="zh-TW">繁体中文</SelectItem>
+                    <SelectItem value="en">英语</SelectItem>
+                    <SelectItem value="ja">日语</SelectItem>
+                    <SelectItem value="ko">韩语</SelectItem>
+                    <SelectItem value="fr">法语</SelectItem>
+                    <SelectItem value="de">德语</SelectItem>
+                    <SelectItem value="es">西班牙语</SelectItem>
+                    <SelectItem value="ru">俄语</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                目标语言
-              </label>
-              <select
-                value={config.defaultTargetLang}
-                onChange={e => setConfig({ ...config, defaultTargetLang: e.target.value as any })}
-                className="w-full p-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            {/* 默认 Flashcard 分组 */}
+            <div className="space-y-2">
+              <Label>默认 Flashcard 分组</Label>
+              <Select
+                value={config.defaultFlashcardGroupId || 'default'}
+                onValueChange={(value) => setConfig({ ...config, defaultFlashcardGroupId: value })}
               >
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁体中文</option>
-                <option value="en">英语</option>
-                <option value="ja">日语</option>
-                <option value="ko">韩语</option>
-                <option value="fr">法语</option>
-                <option value="de">德语</option>
-                <option value="es">西班牙语</option>
-                <option value="ru">俄语</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {flashcardGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name} ({group.cardCount} 张卡片)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                从翻译页或划词翻译添加到卡片库时，将自动保存到此分组
+              </p>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* 高级设置 */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-foreground mb-4">高级设置</h2>
-
-          {/* 存储配额 */}
-          {quotaInfo && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-foreground">存储配额使用</span>
-                <span className="text-sm text-muted-foreground">
-                  {quotaInfo.used} / {quotaInfo.total} 字节 ({quotaInfo.percentage}%)
-                </span>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl">高级设置</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* 存储配额 */}
+            {quotaInfo && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>存储配额使用</Label>
+                  <span className="text-sm text-muted-foreground">
+                    {quotaInfo.used} / {quotaInfo.total} 字节 ({quotaInfo.percentage}%)
+                  </span>
+                </div>
+                <Progress value={quotaInfo.percentage} className={`h-2 [&>div]:${getQuotaColor()}`} />
+                {quotaInfo.percentage > 90 && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertDescription className="text-xs">
+                      ⚠️ 存储空间即将耗尽，建议清理数据
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all ${
-                    quotaInfo.percentage > 90
-                      ? 'bg-red-500'
-                      : quotaInfo.percentage > 70
-                      ? 'bg-yellow-500'
-                      : 'bg-green-500'
-                  }`}
-                  style={{ width: `${quotaInfo.percentage}%` }}
-                ></div>
+            )}
+
+            {/* 配置管理按钮 */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Button variant="secondary" onClick={handleExportConfig} className="flex-1">
+                  📤 导出配置
+                </Button>
+                <Button variant="secondary" asChild className="flex-1">
+                  <label className="cursor-pointer">
+                    📥 导入配置
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportConfig}
+                      className="hidden"
+                    />
+                  </label>
+                </Button>
               </div>
-              {quotaInfo.percentage > 90 && (
-                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                  ⚠️ 存储空间即将耗尽，建议清理数据
-                </p>
-              )}
-            </div>
-          )}
 
-          {/* 配置管理按钮 */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExportConfig}
-                className="flex-1 px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity"
-              >
-                📤 导出配置
-              </button>
-              <label className="flex-1 px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity text-center cursor-pointer">
-                📥 导入配置
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportConfig}
-                  className="hidden"
-                />
-              </label>
+              <Button variant="destructive" onClick={handleResetConfig} className="w-full">
+                🔄 重置为默认设置
+              </Button>
             </div>
 
-            <button
-              onClick={handleResetConfig}
-              className="w-full px-4 py-2 text-sm bg-destructive text-destructive-foreground rounded-md hover:opacity-90 transition-opacity"
-            >
-              🔄 重置为默认设置
-            </button>
-          </div>
+            {/* 高级操作消息 */}
+            {advancedMessage && (
+              <Alert variant={advancedMessage.type === 'success' ? 'success' : advancedMessage.type === 'error' ? 'destructive' : 'info'}>
+                <AlertDescription>{advancedMessage.message}</AlertDescription>
+              </Alert>
+            )}
 
-          {/* 高级操作消息 */}
-          {advancedMessage && (
-            <div
-              className={`mt-4 p-3 rounded-md text-sm ${
-                advancedMessage.type === 'success'
-                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-                  : advancedMessage.type === 'error'
-                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-                  : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
-              }`}
-            >
-              {advancedMessage.message}
+            <div className="p-3 bg-muted rounded-md text-xs text-muted-foreground space-y-1">
+              <p><strong>导出配置：</strong>将当前设置保存为 JSON 文件</p>
+              <p><strong>导入配置：</strong>从 JSON 文件恢复设置</p>
+              <p><strong>重置设置：</strong>将所有设置恢复为默认值</p>
             </div>
-          )}
-
-          <div className="mt-4 p-3 bg-muted rounded-md text-xs text-muted-foreground space-y-1">
-            <p><strong>导出配置：</strong>将当前设置保存为 JSON 文件</p>
-            <p><strong>导入配置：</strong>从 JSON 文件恢复设置</p>
-            <p><strong>重置设置：</strong>将所有设置恢复为默认值</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* 关于 */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-foreground mb-4">关于</h2>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p><strong>版本：</strong> 0.1.0</p>
-            <p><strong>描述：</strong> 一个支持多翻译引擎的智能 Chrome 翻译扩展</p>
-            <p><strong>功能：</strong> 划词翻译、输入翻译、历史记录等</p>
-            <p><strong>当前支持：</strong> Google Cloud Translation API v2</p>
-          </div>
-        </div>
-
-        {/* 保存按钮和消息 */}
-        <div className="flex items-center justify-between">
-          {saveMessage && (
-            <span className="text-sm text-green-600 dark:text-green-400">
-              {saveMessage}
-            </span>
-          )}
-          <div className="flex-1"></div>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-          >
-            {isSaving ? '保存中...' : '保存设置'}
-          </button>
-        </div>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl">关于</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p><strong>版本：</strong> 0.1.0</p>
+              <p><strong>描述：</strong> 一个支持多翻译引擎的智能 Chrome 翻译扩展</p>
+              <p><strong>功能：</strong> 划词翻译、输入翻译、历史记录等</p>
+              <p><strong>当前支持：</strong> Google Cloud Translation API v2</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

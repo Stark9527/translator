@@ -4,6 +4,9 @@ import { ArrowLeft, Plus, Edit2, Trash2, Folder } from 'lucide-react';
 import type { FlashcardGroup } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
 import { Icon } from '@/components/ui/icon';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -153,22 +156,23 @@ export default function GroupManagePage() {
       <div className="p-4 border-b border-border bg-background">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => navigate('/flashcards')}
-              className="p-1.5 hover:bg-accent rounded transition-colors"
               title="返回"
             >
               <Icon icon={ArrowLeft} size="sm" className="text-muted-foreground" />
-            </button>
+            </Button>
             <h1 className="text-lg font-bold text-foreground">分组管理</h1>
           </div>
-          <button
+          <Button
+            size="sm"
             onClick={openCreateModal}
-            className="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:opacity-90 transition-opacity flex items-center gap-1"
           >
             <Icon icon={Plus} size="xs" />
-            <span>新建</span>
-          </button>
+            <span className="ml-1">新建</span>
+          </Button>
         </div>
         <p className="text-sm text-muted-foreground">
           共 {groups.length} 个分组
@@ -210,21 +214,25 @@ export default function GroupManagePage() {
 
               {/* 操作按钮 */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => openEditModal(group)}
-                  className="p-2 hover:bg-accent rounded transition-colors"
                   title="编辑"
                 >
                   <Icon icon={Edit2} size="xs" className="text-muted-foreground" />
-                </button>
+                </Button>
                 {group.id !== 'default' && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-destructive/10"
                     onClick={() => handleDelete(group)}
-                    className="p-2 hover:bg-destructive/10 rounded transition-colors"
                     title="删除"
                   >
                     <Icon icon={Trash2} size="xs" className="text-destructive" />
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -239,45 +247,42 @@ export default function GroupManagePage() {
             <DialogTitle>{editingGroup ? '编辑分组' : '创建新分组'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">
                 分组名称 <span className="text-destructive">*</span>
-              </label>
-              <input
+              </Label>
+              <Input
+                id="name"
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="例如：工作、生活、考试..."
-                className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 autoFocus
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
+            <div className="space-y-2">
+              <Label htmlFor="description">
                 描述（可选）
-              </label>
-              <input
+              </Label>
+              <Input
+                id="description"
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="简要描述这个分组..."
-                className="w-full px-3 py-2 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={closeModal}
-                className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
               >
                 取消
-              </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
-              >
+              </Button>
+              <Button type="submit">
                 {editingGroup ? '更新' : '创建'}
-              </button>
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -295,18 +300,12 @@ export default function GroupManagePage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <button
-              onClick={() => setDeleteModal(null)}
-              className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
-            >
+            <Button variant="outline" onClick={() => setDeleteModal(null)}>
               取消
-            </button>
-            <button
-              onClick={confirmDelete}
-              className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
-            >
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
               删除
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

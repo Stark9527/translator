@@ -40,11 +40,14 @@ export default function StatisticsPage() {
 
       // 加载熟练度分布
       const distribution = await analyticsService.getProficiencyDistribution();
-      const pieData = Object.entries(distribution).map(([level, count]) => ({
-        name: PROFICIENCY_LABELS[level as ProficiencyLevel],
-        value: count,
-        color: PROFICIENCY_COLORS[level as ProficiencyLevel],
-      })).filter(item => item.value > 0);
+      const pieData = Object.entries(distribution)
+        .filter(([level]) => level !== 'total') // 排除 total 字段
+        .map(([level, count]) => ({
+          name: PROFICIENCY_LABELS[level as ProficiencyLevel],
+          value: count,
+          color: PROFICIENCY_COLORS[level as ProficiencyLevel],
+        }))
+        .filter(item => item.value > 0);
       setProficiencyData(pieData);
 
       // 加载学习曲线（最近 7 天）

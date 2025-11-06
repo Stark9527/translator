@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Star, Trash2, Edit2, Volume2, Folder, FolderInput } from 'lucide-react';
 import type { Flashcard } from '@/types/flashcard';
@@ -52,19 +52,45 @@ export function FlashcardCard({
     locale: zhCN,
   });
 
+  // 计算创建时间显示
+  const getCreatedAtText = () => {
+    const createdDate = new Date(flashcard.createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - createdDate.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 60) {
+      // 小于1小时
+      return '刚刚添加';
+    } else if (diffHours < 24) {
+      // 1-24小时
+      return `${diffHours}小时前添加`;
+    } else if (diffDays <= 7) {
+      // 1-7天
+      return `${diffDays}天前添加`;
+    } else {
+      // 超过7天显示具体日期
+      return `${format(createdDate, 'yyyy-MM-dd')}添加`;
+    }
+  };
+
+  const createdAtText = getCreatedAtText();
+
   // 判断是否逾期
   const isOverdue = new Date(flashcard.nextReview) < new Date();
 
   return (
     <div
       className={cn(
-        'group relative p-4 border border-border rounded-lg bg-card hover:shadow-md transition-all cursor-pointer',
+        'group relative p-3 border border-border rounded-lg bg-card hover:shadow-md transition-all cursor-pointer',
         onClick && 'hover:border-primary/50'
       )}
       onClick={() => onClick?.(flashcard.id)}
     >
       {/* 头部：单词 + 发音 + 收藏 */}
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex-1 flex items-center gap-2">
           <h3 className="text-lg font-semibold text-foreground">{flashcard.word}</h3>
           <button
@@ -99,7 +125,7 @@ export function FlashcardCard({
       </div>
 
       {/* 翻译 */}
-      <p className="text-sm text-muted-foreground mb-3">{flashcard.translation}</p>
+      <p className="text-sm text-muted-foreground mb-2">{flashcard.translation}</p>
 
       {/* 发音（如果有） */}
       {flashcard.pronunciation && (
@@ -110,13 +136,13 @@ export function FlashcardCard({
 
       {/* 例句（如果有，只显示第一条） */}
       {flashcard.examples && flashcard.examples.length > 0 && (
-        <p className="text-xs text-muted-foreground italic mb-3 line-clamp-2">
+        <p className="text-xs text-muted-foreground italic mb-2 line-clamp-2">
           &quot;{flashcard.examples[0]}&quot;
         </p>
       )}
 
       {/* 底部：徽章 + 分组 + 标签 + 操作 */}
-      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border">
+      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border">
         <div className="flex items-center gap-2 flex-wrap">
           <ProficiencyBadge level={flashcard.proficiency} />
 
@@ -131,10 +157,15 @@ export function FlashcardCard({
           <span
             className={cn(
               'text-xs',
-              isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'
+              isOverdue ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-muted-foreground'
             )}
           >
-            {isOverdue ? '逾期' : nextReviewText}
+            {isOverdue ? '待复习' : nextReviewText}
+          </span>
+
+          {/* 创建时间 */}
+          <span className="text-xs text-muted-foreground">
+            {createdAtText}
           </span>
 
           {/* 标签 */}

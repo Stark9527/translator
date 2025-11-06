@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Rating, Grade } from 'ts-fsrs';
-import { Play, RotateCcw, X, GraduationCap } from 'lucide-react';
+import { Play, RotateCcw, X, GraduationCap, AlertTriangle } from 'lucide-react';
 import type { Flashcard } from '@/types/flashcard';
 import { studySessionService } from '@/services/flashcard';
 import { StudyCard } from '@/components/flashcard/StudyCard';
 import { ProgressRing } from '@/components/flashcard/ProgressRing';
 import { Icon } from '@/components/ui/icon';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const ratingButtons: Array<{ rating: Grade; label: string; shortcut: string; color: string }> = [
   { rating: Rating.Again as Grade, label: '重来', shortcut: '1', color: 'bg-red-500 hover:bg-red-600' },
@@ -23,6 +32,7 @@ export default function StudyPage() {
   const [stats, setStats] = useState({ correct: 0, wrong: 0 });
   const [startTime, setStartTime] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   // 加载当前卡片
   const loadCurrentCard = useCallback(() => {
@@ -136,13 +146,17 @@ export default function StudyPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSessionActive, currentCard, isFlipped, handleFlip, startTime]);
 
-  // 取消会话
+  // 显示退出确认对话框
   const handleCancelSession = () => {
-    if (confirm('确定要退出学习吗？当前进度不会保存。')) {
-      studySessionService.cancelSession();
-      setIsSessionActive(false);
-      setCurrentCard(null);
-    }
+    setShowExitDialog(true);
+  };
+
+  // 确认退出学习
+  const confirmExit = () => {
+    studySessionService.cancelSession();
+    setIsSessionActive(false);
+    setCurrentCard(null);
+    setShowExitDialog(false);
   };
 
   // 未开始状态
@@ -212,23 +226,27 @@ export default function StudyPage() {
 
           {/* 操作按钮 */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setIsFlipped(false);
-                loadCurrentCard();
-              }}
-              className="p-2 hover:bg-accent rounded transition-colors"
-              title="重新开始当前卡片"
-            >
-              <Icon icon={RotateCcw} size="sm" className="text-muted-foreground" />
-            </button>
-            <button
+            {isFlipped && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsFlipped(false);
+                  loadCurrentCard();
+                }}
+                title="重新开始当前卡片"
+              >
+                <Icon icon={RotateCcw} size="sm" className="text-muted-foreground" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleCancelSession}
-              className="p-2 hover:bg-destructive/10 rounded transition-colors"
               title="退出学习"
             >
               <Icon icon={X} size="sm" className="text-destructive" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -269,6 +287,35 @@ export default function StudyPage() {
           </div>
         )}
       </div>
+
+      {/* 退出确认对话框 */}
+      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon icon={AlertTriangle} size="sm" className="text-destructive" />
+              退出学习
+            </DialogTitle>
+            <DialogDescription>
+              确定要退出学习吗？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowExitDialog(false)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmExit}
+            >
+              确认退出
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

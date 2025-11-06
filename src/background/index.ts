@@ -121,6 +121,35 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
       return result;
     }
 
+    case 'CREATE_FLASHCARD': {
+      // 创建 Flashcard
+      const { translation, groupId } = payload as { translation: any; groupId: string };
+      console.info('Create flashcard request:', { translation, groupId });
+
+      // 确保默认分组存在
+      await flashcardService.ensureDefaultGroup();
+
+      // 创建flashcard
+      const flashcard = await flashcardService.createFromTranslation(translation, {
+        groupId: groupId || 'default'
+      });
+
+      console.info('Flashcard created:', flashcard);
+      return flashcard;
+    }
+
+    case 'GET_FLASHCARDS': {
+      // 获取所有 Flashcards
+      const flashcards = await flashcardService.getAll();
+      return flashcards;
+    }
+
+    case 'GET_FLASHCARD_GROUPS': {
+      // 获取所有分组
+      const groups = await flashcardService.getAllGroups();
+      return groups;
+    }
+
     default:
       throw new Error(`Unknown message type: ${type}`);
   }

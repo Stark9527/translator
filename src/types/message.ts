@@ -61,6 +61,27 @@ export interface TriggerTranslateMessage extends BaseMessage {
   payload: null;
 }
 
+// 创建Flashcard消息
+export interface CreateFlashcardMessage extends BaseMessage {
+  type: 'CREATE_FLASHCARD';
+  payload: {
+    translation: TranslateResult;
+    groupId: string;
+  };
+}
+
+// 获取所有Flashcards消息
+export interface GetFlashcardsMessage extends BaseMessage {
+  type: 'GET_FLASHCARDS';
+  payload: null;
+}
+
+// 获取所有Flashcard分组消息
+export interface GetFlashcardGroupsMessage extends BaseMessage {
+  type: 'GET_FLASHCARD_GROUPS';
+  payload: null;
+}
+
 // 存储配额信息
 export interface StorageQuotaInfo {
   used: number;
@@ -78,7 +99,10 @@ export type Message =
   | ImportConfigMessage
   | GetStorageQuotaMessage
   | PingMessage
-  | TriggerTranslateMessage;
+  | TriggerTranslateMessage
+  | CreateFlashcardMessage
+  | GetFlashcardsMessage
+  | GetFlashcardGroupsMessage;
 
 // 消息响应类型映射
 export type MessageResponse<T extends Message> = T extends TranslateMessage

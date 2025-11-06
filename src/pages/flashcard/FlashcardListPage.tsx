@@ -7,6 +7,16 @@ import { flashcardService } from '@/services/flashcard';
 import { FlashcardCard } from '@/components/flashcard/FlashcardCard';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/utils/cn';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +36,6 @@ const proficiencyOptions: { value: ProficiencyLevel | 'all'; label: string }[] =
 
 const sortOptions = [
   { value: 'createdAt', label: '创建时间' },
-  { value: 'updatedAt', label: '更新时间' },
   { value: 'nextReview', label: '复习时间' },
   { value: 'word', label: '单词' },
 ];
@@ -40,7 +49,7 @@ export default function FlashcardListPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProficiency, setSelectedProficiency] = useState<ProficiencyLevel | 'all'>('all');
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'nextReview' | 'word'>('createdAt');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'nextReview' | 'word'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFavoriteOnly, setShowFavoriteOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,9 +137,6 @@ export default function FlashcardListPage() {
         case 'createdAt':
           comparison = a.createdAt - b.createdAt;
           break;
-        case 'updatedAt':
-          comparison = a.updatedAt - b.updatedAt;
-          break;
         case 'nextReview':
           comparison = new Date(a.nextReview).getTime() - new Date(b.nextReview).getTime();
           break;
@@ -215,25 +221,26 @@ export default function FlashcardListPage() {
       <div className="p-4 border-b border-border bg-background">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold text-foreground">卡片库</h1>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => navigate('/flashcards/groups')}
-            className="px-3 py-1.5 bg-muted text-foreground text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-1"
             title="管理分组"
           >
             <Icon icon={Settings} size="xs" />
-            <span>分组</span>
-          </button>
+            <span className="ml-1">分组</span>
+          </Button>
         </div>
 
         {/* 搜索框 */}
         <div className="relative mb-3">
           <Icon icon={Search} size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
+          <Input
             type="text"
             placeholder="搜索单词、翻译或标签..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            className="pl-8 text-sm"
           />
         </div>
 
@@ -242,64 +249,67 @@ export default function FlashcardListPage() {
           {/* 第一行：分组、熟练度、排序、收藏 */}
           <div className="flex items-center gap-1.5">
             {/* 分组筛选 */}
-            <select
-              value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
-            >
-              <option value="all">全部分组</option>
-              {groups.map(group => (
-                <option key={group.id} value={group.id}>
-                  {group.name} ({group.cardCount})
-                </option>
-              ))}
-            </select>
+            <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+              <SelectTrigger className="h-8 text-xs min-w-0">
+                <SelectValue placeholder="全部分组" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部分组</SelectItem>
+                {groups.map(group => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name} ({group.cardCount})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* 熟练度筛选 */}
-            <select
-              value={selectedProficiency}
-              onChange={(e) => setSelectedProficiency(e.target.value as ProficiencyLevel | 'all')}
-              className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
-            >
-              {proficiencyOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <Select value={selectedProficiency} onValueChange={(value) => setSelectedProficiency(value as ProficiencyLevel | 'all')}>
+              <SelectTrigger className="h-8 text-xs min-w-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {proficiencyOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* 分隔符 */}
             <div className="w-px h-5 bg-border" />
 
             {/* 排序方式 */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="px-2 py-1 text-xs border border-input rounded bg-background min-w-0"
-            >
-              {sortOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as typeof sortBy)}>
+              <SelectTrigger className="h-8 text-xs min-w-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* 排序按钮 */}
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 flex-shrink-0"
               onClick={toggleSortOrder}
-              className="p-1 hover:bg-accent rounded transition-colors flex-shrink-0"
               title={sortOrder === 'asc' ? '升序' : '降序'}
             >
               <Icon icon={SortAsc} size="xs" className={cn('text-muted-foreground transition-transform', sortOrder === 'desc' && 'rotate-180')} />
-            </button>
+            </Button>
 
             {/* 只显示收藏 */}
             <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={showFavoriteOnly}
-                onChange={(e) => setShowFavoriteOnly(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setShowFavoriteOnly(checked as boolean)}
               />
               <span className="text-muted-foreground">仅收藏</span>
             </label>
@@ -358,18 +368,12 @@ export default function FlashcardListPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <button
-              onClick={() => setDeleteModal(null)}
-              className="flex-1 px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
-            >
+            <Button variant="outline" onClick={() => setDeleteModal(null)}>
               取消
-            </button>
-            <button
-              onClick={confirmDelete}
-              className="flex-1 px-4 py-2 bg-destructive text-destructive-foreground text-sm font-medium rounded-md hover:opacity-90 transition-opacity"
-            >
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
               删除
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -387,25 +391,25 @@ export default function FlashcardListPage() {
             {groups
               .filter(g => g.id !== moveModal?.currentGroupId)
               .map(group => (
-                <button
+                <Button
                   key={group.id}
+                  variant="outline"
+                  className="w-full justify-start"
                   onClick={() => confirmMoveToGroup(group.id)}
-                  className="w-full px-3 py-2 text-left text-sm border border-input rounded-md hover:bg-accent transition-colors"
                 >
-                  <div className="font-medium text-foreground">{group.name}</div>
-                  {group.description && (
-                    <div className="text-xs text-muted-foreground mt-0.5">{group.description}</div>
-                  )}
-                </button>
+                  <div className="text-left flex-1">
+                    <div className="font-medium text-foreground">{group.name}</div>
+                    {group.description && (
+                      <div className="text-xs text-muted-foreground mt-0.5">{group.description}</div>
+                    )}
+                  </div>
+                </Button>
               ))}
           </div>
           <DialogFooter>
-            <button
-              onClick={() => setMoveModal(null)}
-              className="w-full px-4 py-2 text-sm border border-input rounded-md hover:bg-accent transition-colors"
-            >
+            <Button variant="outline" onClick={() => setMoveModal(null)} className="w-full">
               取消
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
