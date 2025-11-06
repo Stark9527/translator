@@ -89,16 +89,23 @@ export function FlashcardCard({
       )}
       onClick={() => onClick?.(flashcard.id)}
     >
-      {/* 头部：单词 + 发音 + 收藏 */}
+      {/* 头部：单词 + 音标 + 发音 + 收藏 */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex-1 flex items-center gap-2">
           <h3 className="text-lg font-semibold text-foreground">{flashcard.word}</h3>
+          {/* 音标 - 在发声按钮左边 */}
+          {flashcard.phonetic && (
+            <span className="text-sm text-purple-600 dark:text-purple-400">
+              {flashcard.phonetic}
+            </span>
+          )}
+          {/* 发声按钮 - 常驻 */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleSpeak(flashcard.word, flashcard.sourceLanguage);
             }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
+            className="p-1 hover:bg-accent rounded transition-colors"
             title="朗读"
           >
             <Icon icon={Volume2} size="xs" className={cn('text-muted-foreground', isPlaying && 'text-primary')} />
@@ -125,14 +132,7 @@ export function FlashcardCard({
       </div>
 
       {/* 翻译 */}
-      <p className="text-sm text-muted-foreground mb-2">{flashcard.translation}</p>
-
-      {/* 发音（如果有） */}
-      {flashcard.pronunciation && (
-        <p className="text-xs text-muted-foreground mb-2">
-          <span className="font-mono">[{flashcard.pronunciation}]</span>
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground mb-2 whitespace-pre-line">{flashcard.translation}</p>
 
       {/* 例句（如果有，只显示第一条） */}
       {flashcard.examples && flashcard.examples.length > 0 && (

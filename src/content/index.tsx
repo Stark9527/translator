@@ -9,6 +9,13 @@ console.info('Translator content script loaded');
 
 // 挂载 React 组件
 function mountTranslatorUI() {
+  // 先检查是否已经存在容器，如果存在则先移除（防止重复加载）
+  const existingContainer = document.getElementById('translator-extension-root');
+  if (existingContainer) {
+    console.info('Removing existing translator container to prevent duplicate instances');
+    existingContainer.remove();
+  }
+
   // 创建容器
   const container = document.createElement('div');
   container.id = 'translator-extension-root';

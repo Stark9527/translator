@@ -381,7 +381,72 @@ export default function TranslatePage() {
                 </Alert>
               ) : translationResult ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-foreground">{translationResult.translation}</p>
+                  {/* 判断是否有词典信息 */}
+                  {translationResult.meanings && translationResult.meanings.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* 音标和主翻译 */}
+                      <div>
+                        {translationResult.phonetic && (
+                          <div className="text-xs text-muted-foreground mb-1">
+                            {translationResult.phonetic}
+                          </div>
+                        )}
+                        <div className="text-sm font-semibold text-foreground">
+                          {translationResult.translation}
+                        </div>
+                      </div>
+
+                      {/* 按词性展示翻译 */}
+                      {translationResult.meanings.map((meaning, meaningIndex) => (
+                        <div key={meaningIndex} className="space-y-2">
+                          {/* 词性标题 */}
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-semibold text-purple-600">{meaning.partOfSpeechCN}</span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-muted-foreground">{meaning.partOfSpeech}</span>
+                          </div>
+
+                          {/* 翻译列表 */}
+                          {meaning.translations.slice(0, 5).map((trans, transIndex) => (
+                            <div key={transIndex} className={`pl-2 ${transIndex === 0 ? 'border-l-2 border-purple-500' : 'border-l border-border'}`}>
+                              {/* 翻译和置信度 */}
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-sm font-medium text-foreground">{trans.text}</span>
+                                <span className="text-xs text-muted-foreground">{Math.round(trans.confidence * 100)}%</span>
+                              </div>
+
+                              {/* 英文定义 */}
+                              {trans.definition && (
+                                <div className="text-xs text-muted-foreground mb-1 leading-relaxed">
+                                  {trans.definition}
+                                </div>
+                              )}
+
+                              {/* 例句（仅第一个翻译显示）*/}
+                              {transIndex === 0 && trans.examples && trans.examples.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {trans.examples.slice(0, 2).map((example, exIdx) => (
+                                    <div key={exIdx} className="text-xs bg-accent/50 rounded p-2 space-y-1">
+                                      <div className="text-foreground/80">
+                                        🇬🇧 {example.source}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        🇨🇳 {example.target}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* 普通翻译结果 */
+                    <p className="text-sm text-foreground">{translationResult.translation}</p>
+                  )}
+
                   <div className="pt-2 border-t border-border text-xs text-muted-foreground">
                     <span>
                       {getLanguageName(translationResult.from)} → {getLanguageName(translationResult.to)}

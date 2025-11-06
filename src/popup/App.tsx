@@ -11,7 +11,7 @@ function AppContent() {
   const showTabNavigator = location.pathname !== '/flashcards/groups';
 
   return (
-    <div className="w-[400px] h-[600px] bg-background flex flex-col">
+    <div className="w-[428px] h-[600px] bg-background flex flex-col">
       {/* 路由内容区域 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Routes>

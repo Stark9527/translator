@@ -2,6 +2,7 @@
 import type { TranslationEngine, UserConfig } from '@/types';
 import type { ITranslator } from './ITranslator';
 import { GoogleTranslator } from './GoogleTranslator';
+import { DictionaryTranslator } from './DictionaryTranslator';
 
 /**
  * 翻译引擎工厂
@@ -19,9 +20,24 @@ export class TranslatorFactory {
     let translator: ITranslator;
 
     switch (engine) {
-      case 'google':
-        translator = new GoogleTranslator(config.googleApiKey);
+      case 'google': {
+        // 如果配置了 Microsoft API Key 且启用词典功能，使用智能词典翻译器
+        const enableDictionary = config.enableDictionary !== false; // 默认启用
+        const hasMicrosoftKey = !!config.microsoftApiKey;
+
+        if (enableDictionary && hasMicrosoftKey && config.googleApiKey) {
+          translator = new DictionaryTranslator(
+            config.googleApiKey,
+            config.microsoftApiKey,
+            config.microsoftRegion,
+            true
+          );
+        } else {
+          // 否则使用普通的 Google 翻译器
+          translator = new GoogleTranslator(config.googleApiKey);
+        }
         break;
+      }
 
       case 'deepl':
         // TODO: 实现 DeepL 翻译器

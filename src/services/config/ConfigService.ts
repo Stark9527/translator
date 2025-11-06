@@ -14,6 +14,9 @@ const DEFAULT_CONFIG: UserConfig = {
   defaultSourceLang: 'auto',
   defaultTargetLang: 'zh-CN',
   googleApiKey: undefined,
+  microsoftApiKey: undefined,
+  microsoftRegion: 'global',
+  enableDictionary: true,
   theme: 'auto',
   enableShortcut: true,
   enableHistory: true,
@@ -108,6 +111,22 @@ export class ConfigService {
       if (typeof config.deeplApiKey !== 'string' || config.deeplApiKey.length < 10) {
         errors.push('DeepL API Key 格式无效');
       }
+    }
+
+    if (config.microsoftApiKey !== undefined && config.microsoftApiKey !== '') {
+      if (typeof config.microsoftApiKey !== 'string' || config.microsoftApiKey.length < 10) {
+        errors.push('Microsoft API Key 格式无效');
+      }
+    }
+
+    if (config.microsoftRegion !== undefined && config.microsoftRegion !== '') {
+      if (typeof config.microsoftRegion !== 'string') {
+        errors.push('Microsoft Region 格式无效');
+      }
+    }
+
+    if (config.enableDictionary !== undefined && typeof config.enableDictionary !== 'boolean') {
+      errors.push('enableDictionary 必须是布尔值');
     }
 
     // 验证主题

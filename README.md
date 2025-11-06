@@ -223,7 +223,7 @@ translator-extension/
 
 - [ ] **阶段 4：集成与优化 (1-2天)**
   - [x] 4.1 在Popup的翻译页面对接FlashCard ✅
-  - [ ] 4.2 在划词翻译对接FlashCard
+  - [x] 4.2 在划词翻译对接FlashCard
   - [x] 4.3 添加页面路由和底部导航 ✅
   - [ ] 4.4 实现 Chrome Alarms 复习提醒
   - [ ] 4.5 实现数据导入导出（JSON + 可选 Anki 格式）

@@ -46,19 +46,22 @@ export function StudyCard({ flashcard, isFlipped, onFlip }: StudyCardProps) {
           <div className="text-center">
             <h2 className="text-4xl font-bold text-foreground mb-4">{flashcard.word}</h2>
 
-            {flashcard.pronunciation && (
-              <p className="text-lg text-muted-foreground font-mono mb-6">
-                [{flashcard.pronunciation}]
-              </p>
-            )}
-
-            <button
-              onClick={(e) => handleSpeak(flashcard.word, flashcard.sourceLanguage, e)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
-            >
-              <Icon icon={Volume2} size="sm" className={isPlaying ? 'animate-pulse' : ''} />
-              <span>朗读</span>
-            </button>
+            <div className="flex items-center justify-center gap-3 mb-6">
+              {/* 音标 - 在发声按钮左边 */}
+              {flashcard.phonetic && (
+                <span className="text-lg text-purple-600 dark:text-purple-400">
+                  {flashcard.phonetic}
+                </span>
+              )}
+              {/* 发声按钮 - 常驻 */}
+              <button
+                onClick={(e) => handleSpeak(flashcard.word, flashcard.sourceLanguage, e)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Icon icon={Volume2} size="sm" className={isPlaying ? 'animate-pulse' : ''} />
+                <span>朗读</span>
+              </button>
+            </div>
           </div>
 
           <div className="absolute bottom-6 text-sm text-muted-foreground">
@@ -78,7 +81,7 @@ export function StudyCard({ flashcard, isFlipped, onFlip }: StudyCardProps) {
             {/* 翻译 */}
             <div className="mb-4">
               <p className="text-sm text-muted-foreground mb-1">翻译</p>
-              <p className="text-xl text-foreground">{flashcard.translation}</p>
+              <p className="text-xl text-foreground whitespace-pre-line">{flashcard.translation}</p>
               <button
                 onClick={(e) => handleSpeak(flashcard.translation, flashcard.targetLanguage, e)}
                 className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"

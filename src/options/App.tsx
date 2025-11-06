@@ -24,6 +24,9 @@ export default function App() {
     defaultTargetLang: 'zh-CN',
     googleApiKey: '',
     deeplApiKey: '',
+    microsoftApiKey: '',
+    microsoftRegion: 'global',
+    enableDictionary: true,
     theme: 'auto',
     enableShortcut: true,
     enableHistory: true,
@@ -420,6 +423,109 @@ export default function App() {
                     查看价格
                   </a>
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Microsoft Translator API Key - 词典功能 */}
+        {config.engine === 'google' && (
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">Microsoft Translator API Key（词典功能）</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    可选配置，用于英文单词的词典翻译（多词性、多释义、例句）
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="enableDictionary" className="text-sm">启用词典</Label>
+                  <input
+                    id="enableDictionary"
+                    type="checkbox"
+                    checked={config.enableDictionary !== false}
+                    onChange={(e) => setConfig({ ...config, enableDictionary: e.target.checked })}
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>API Key</Label>
+                <Input
+                  type="password"
+                  value={config.microsoftApiKey || ''}
+                  onChange={(e) => setConfig({ ...config, microsoftApiKey: e.target.value })}
+                  placeholder="请输入您的 Microsoft Translator API Key（可选）"
+                  className="font-mono text-sm"
+                  disabled={config.enableDictionary === false}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>区域 (Region)</Label>
+                <Select
+                  value={config.microsoftRegion || 'global'}
+                  onValueChange={(value) => setConfig({ ...config, microsoftRegion: value })}
+                  disabled={config.enableDictionary === false}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Global（全球）</SelectItem>
+                    <SelectItem value="eastus">East US（美国东部）</SelectItem>
+                    <SelectItem value="westus">West US（美国西部）</SelectItem>
+                    <SelectItem value="eastasia">East Asia（东亚）</SelectItem>
+                    <SelectItem value="southeastasia">Southeast Asia（东南亚）</SelectItem>
+                    <SelectItem value="westeurope">West Europe（西欧）</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 帮助信息 */}
+              <div className="p-4 bg-muted rounded-md space-y-2 text-sm">
+                <p className="font-medium text-foreground">词典功能说明：</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
+                  <li>自动识别英文单词，展示多词性、多释义、例句、音标</li>
+                  <li>仅对英文→中文的单词翻译生效</li>
+                  <li>句子和非英文内容仍使用 Google 翻译</li>
+                  <li>不配置则所有翻译均使用 Google 翻译</li>
+                </ul>
+
+                <p className="font-medium text-foreground mt-3">如何获取 Microsoft Translator API Key：</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-2">
+                  <li>
+                    访问{' '}
+                    <a
+                      href="https://portal.azure.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Azure Portal
+                    </a>
+                  </li>
+                  <li>创建 "Translator" 资源</li>
+                  <li>在资源页面的"密钥和终结点"中复制密钥</li>
+                  <li>记下你的区域（如 global）</li>
+                </ol>
+
+                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950 rounded text-xs">
+                  <p className="text-blue-700 dark:text-blue-300">
+                    <strong>💡 提示：</strong> Microsoft Translator 提供<strong>每月 200万字符</strong>免费额度。
+                    <a
+                      href="https://azure.microsoft.com/zh-cn/pricing/details/cognitive-services/translator/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline ml-1"
+                    >
+                      查看价格
+                    </a>
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

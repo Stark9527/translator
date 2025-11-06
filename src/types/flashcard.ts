@@ -42,6 +42,10 @@ export interface FlashcardData {
   examples?: string[];           // 例句
   notes?: string;                // 用户笔记
 
+  // 词典信息（多词性、多释义）
+  phonetic?: string;             // 音标
+  meanings?: import('./index').DictionaryMeaning[];  // 词典词义（按词性分组）
+
   // 来源信息
   sourceLanguage: LanguageCode;  // 源语言
   targetLanguage: LanguageCode;  // 目标语言

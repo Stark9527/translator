@@ -400,8 +400,7 @@ export default function SelectionPopup() {
             borderRadius: '12px',
             padding: '16px',
             boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12)',
-            minWidth: '320px',
-            maxWidth: '420px',
+            width: '420px',
             animation: 'fadeIn 0.2s ease-out',
           }}
         >
@@ -416,27 +415,8 @@ export default function SelectionPopup() {
               borderBottom: '1px solid #f3f4f6',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
-                原文
-              </div>
-              {/* 朗读原文按钮 */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSpeak(selectedText, config?.defaultSourceLang)}
-                style={{
-                  height: '20px',
-                  padding: '0 4px',
-                  minWidth: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title="朗读原文"
-              >
-                <Icon icon={Volume2} size="xs" />
-              </Button>
+            <div style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500' }}>
+              原文
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
@@ -483,18 +463,50 @@ export default function SelectionPopup() {
             </div>
           </div>
 
-          {/* 选中的文本 */}
+          {/* 选中的文本、音标和朗读按钮 */}
           <div
             style={{
-              fontSize: '15px',
-              color: '#111827',
-              lineHeight: '1.6',
               marginBottom: '16px',
-              maxHeight: '120px',
-              overflowY: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            {selectedText}
+            {/* 原文 */}
+            <div
+              style={{
+                fontSize: '16px',
+                color: '#111827',
+                fontWeight: '600',
+              }}
+            >
+              {selectedText}
+            </div>
+            {/* 音标 - 只在有翻译结果且有音标时显示 */}
+            {translationResult?.phonetic && (
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: '#8b5cf6',
+                }}
+              >
+                {translationResult.phonetic}
+              </div>
+            )}
+            {/* 朗读原文按钮 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleSpeak(selectedText, config?.defaultSourceLang)}
+              style={{
+                height: '24px',
+                padding: '0 4px',
+                minWidth: '24px',
+              }}
+              title="朗读原文"
+            >
+              <Icon icon={Volume2} size="xs" style={{verticalAlign: '-2px'}} />
+            </Button>
           </div>
 
           {/* 分隔线 */}
@@ -515,23 +527,6 @@ export default function SelectionPopup() {
               {/* 只在有翻译结果时显示操作按钮 */}
               {translationResult && !isLoading && !error && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {/* 朗读译文按钮 */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSpeak(translationResult.translation, translationResult.to)}
-                    style={{
-                      height: '20px',
-                      padding: '0 4px',
-                      minWidth: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    title="朗读译文"
-                  >
-                    <Icon icon={Volume2} size="xs" />
-                  </Button>
                   {/* 复制译文按钮 */}
                   <Button
                     variant="ghost"
@@ -604,7 +599,68 @@ export default function SelectionPopup() {
               )}
               {translationResult && !isLoading && !error && (
                 <div style={{ color: '#111827' }}>
-                  {translationResult.translation}
+                  {/* 如果有词典信息，展示词典格式 */}
+                  {translationResult.meanings && translationResult.meanings.length > 0 ? (
+                    <div>
+                      {/* 按词性展示翻译 */}
+                      {translationResult.meanings.map((meaning, meaningIndex) => {
+                        // 收集该词性下的所有例句，只取第一个
+                        const allExamples = meaning.translations
+                          .flatMap(trans => trans.examples || [])
+                          .slice(0, 1); // 只显示1个例句
+
+                        return (
+                          <div key={meaningIndex} style={{ marginBottom: meaningIndex < translationResult.meanings!.length - 1 ? '16px' : '0' }}>
+                            {/* 词性和翻译（同一行，用分号分隔） */}
+                            <div style={{ marginBottom: '8px', lineHeight: '1.6' }}>
+                              <span style={{ fontSize: '12px', color: '#5e5d59', fontWeight: '600' }}>
+                                {meaning.partOfSpeech}.
+                              </span>
+                              <span style={{ fontSize: '14px', color: '#111827', fontWeight: '600' }}>
+                                {' '}
+                                {meaning.translations.slice(0, 5).map(trans => trans.text).join('；')}
+                              </span>
+                            </div>
+
+                            {/* 例句 */}
+                            {allExamples.length > 0 && allExamples[0].source && (
+                              <div style={{
+                                marginLeft: '0px',
+                                background: '#f3f4f6',
+                                padding: '8px 12px',
+                                borderRadius: '8px'
+                              }}>
+                                {allExamples.map((example, exIdx) => (
+                                  <div key={exIdx} style={{ marginBottom: exIdx < allExamples.length - 1 ? '8px' : '0' }}>
+                                    {/* 英文例句 */}
+                                    <div style={{
+                                      fontSize: '14px',
+                                      color: '#111827',
+                                      marginBottom: '2px',
+                                      lineHeight: '1.5'
+                                    }}>
+                                      {example.sourcePrefix}<span style={{  color: '#8b5cf6' }}>{example.sourceTerm}</span>{example.sourceSuffix}
+                                    </div>
+                                    {/* 中文翻译 */}
+                                    <div style={{
+                                      fontSize: '13px',
+                                      color: '#6b7280',
+                                      lineHeight: '1.5'
+                                    }}>
+                                      {example.targetPrefix}<span style={{ color: '#8b5cf6' }}>{example.targetTerm}</span>{example.targetSuffix}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* 普通翻译结果 */
+                    <div>{translationResult.translation}</div>
+                  )}
                 </div>
               )}
               {!isLoading && !error && !translationResult && (
@@ -617,6 +673,7 @@ export default function SelectionPopup() {
             {saveFlashcardMessage && (
               <div
                 style={{
+                  marginTop: '10px',
                   padding: '10px 12px',
                   borderRadius: '8px',
                   display: 'flex',

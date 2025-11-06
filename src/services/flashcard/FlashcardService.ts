@@ -27,13 +27,27 @@ export class FlashcardService {
     const now = Date.now();
     const fsrsCard = fsrsService.createCard();
 
+    // 如果有词典信息（meanings），将所有词性的翻译组合成完整的翻译文本
+    let fullTranslation = translation.translation;
+    if (translation.meanings && translation.meanings.length > 0) {
+      fullTranslation = translation.meanings.map(meaning => {
+        // 格式：词性. 翻译1；翻译2；翻译3
+        const translations = meaning.translations.map(t => t.text).join('；');
+        return `${meaning.partOfSpeech}. ${translations}`;
+      }).join('\n');
+    }
+
     const flashcard: Flashcard = {
       id: uuidv4(),
       word: translation.text,
-      translation: translation.translation,
+      translation: fullTranslation,  // 保存所有词性的完整翻译
       pronunciation: translation.pronunciation,
       examples: translation.examples,
       notes: params?.notes,
+
+      // 保存词典信息（多词性、多释义）
+      phonetic: translation.phonetic,
+      meanings: translation.meanings,
 
       sourceLanguage: translation.from,
       targetLanguage: translation.to,
