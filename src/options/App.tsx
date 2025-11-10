@@ -338,19 +338,9 @@ export default function App() {
               </div>
 
               <div className="flex items-center space-x-3 p-3 border border-border rounded-md opacity-50 transition-colors">
-                <RadioGroupItem value="deepl" id="deepl" disabled />
-                <Label htmlFor="deepl" className="flex-1">
-                  <div className="font-medium">DeepL</div>
-                  <div className="text-sm text-muted-foreground">
-                    翻译质量高、需要 API Key（即将支持）
-                  </div>
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-3 p-3 border border-border rounded-md opacity-50 transition-colors">
                 <RadioGroupItem value="openai" id="openai" disabled />
                 <Label htmlFor="openai" className="flex-1">
-                  <div className="font-medium">OpenAI</div>
+                  <div className="font-medium">LLM</div>
                   <div className="text-sm text-muted-foreground">
                     AI 驱动、上下文理解强（即将支持）
                   </div>
@@ -718,7 +708,7 @@ export default function App() {
             <div className="space-y-2 text-sm text-muted-foreground">
               <p><strong>版本：</strong> 0.1.0</p>
               <p><strong>描述：</strong> 一个支持多翻译引擎的智能 Chrome 翻译扩展</p>
-              <p><strong>功能：</strong> 划词翻译、输入翻译、历史记录等</p>
+              <p><strong>功能：</strong> 划词翻译、输入翻译、学习、统计等</p>
               <p><strong>当前支持：</strong> Google Cloud Translation API v2</p>
             </div>
           </CardContent>
