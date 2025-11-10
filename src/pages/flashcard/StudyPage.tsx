@@ -74,32 +74,39 @@ export default function StudyPage() {
   };
 
   // 提交答案
-  const submitAnswer = async (rating: Grade) => {
-    if (!currentCard || !isFlipped) return;
+  const submitAnswer = useCallback(
+    async (rating: Grade) => {
+      if (!currentCard || !isFlipped) return;
 
-    const responseTime = Date.now() - startTime;
+      const responseTime = Date.now() - startTime;
 
-    try {
-      await studySessionService.submitAnswer(rating, responseTime);
+      try {
+        // 先获取当前统计，因为 submitAnswer 后会话可能被清空
+        const currentStats = studySessionService.getSessionStats();
 
-      // 检查是否完成
-      const session = studySessionService.getCurrentSession();
-      if (session?.status === 'completed') {
-        setIsSessionActive(false);
-        const finalStats = studySessionService.getSessionStats();
-        alert(
-          `学习完成！\n✓ 答对：${finalStats?.correct || 0}\n✗ 答错：${finalStats?.wrong || 0}`
-        );
-      } else {
-        // 加载下一张卡片
-        setStartTime(Date.now());
-        loadCurrentCard();
+        await studySessionService.submitAnswer(rating, responseTime);
+
+        // 检查是否还有下一张卡片
+        const nextCard = studySessionService.getCurrentCard();
+        if (!nextCard) {
+          // 会话已完成
+          setIsSessionActive(false);
+          setCurrentCard(null);
+          alert(
+            `学习完成！\n✓ 答对：${currentStats?.correct || 0}\n✗ 答错：${currentStats?.wrong || 0}`
+          );
+        } else {
+          // 加载下一张卡片
+          setStartTime(Date.now());
+          loadCurrentCard();
+        }
+      } catch (error) {
+        console.error('Failed to submit answer:', error);
+        alert('提交答案失败');
       }
-    } catch (error) {
-      console.error('Failed to submit answer:', error);
-      alert('提交答案失败');
-    }
-  };
+    },
+    [currentCard, isFlipped, startTime, loadCurrentCard]
+  );
 
   // 翻转卡片
   const handleFlip = useCallback(() => {
