@@ -463,12 +463,13 @@ export class FlashcardService {
 
   /**
    * 检查卡片是否存在（避免重复收藏）
+   * 使用完全匹配（区分大小写）
    */
   async exists(word: string, sourceLanguage: string, targetLanguage: string): Promise<boolean> {
     const allCards = await flashcardDB.getAllFlashcards();
     return allCards.some(
       card =>
-        card.word.toLowerCase() === word.toLowerCase() &&
+        card.word === word &&
         card.sourceLanguage === sourceLanguage &&
         card.targetLanguage === targetLanguage
     );

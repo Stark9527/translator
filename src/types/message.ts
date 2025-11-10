@@ -82,6 +82,25 @@ export interface GetFlashcardGroupsMessage extends BaseMessage {
   payload: null;
 }
 
+// 检查Flashcard是否存在消息
+export interface CheckFlashcardExistsMessage extends BaseMessage {
+  type: 'CHECK_FLASHCARD_EXISTS';
+  payload: {
+    word: string;
+    sourceLanguage: string;
+    targetLanguage: string;
+  };
+}
+
+// 保存划词内容消息
+export interface SaveSelectionMessage extends BaseMessage {
+  type: 'SAVE_SELECTION';
+  payload: {
+    text: string;
+    timestamp: number;
+  };
+}
+
 // 存储配额信息
 export interface StorageQuotaInfo {
   used: number;
@@ -102,7 +121,9 @@ export type Message =
   | TriggerTranslateMessage
   | CreateFlashcardMessage
   | GetFlashcardsMessage
-  | GetFlashcardGroupsMessage;
+  | GetFlashcardGroupsMessage
+  | CheckFlashcardExistsMessage
+  | SaveSelectionMessage;
 
 // 消息响应类型映射
 export type MessageResponse<T extends Message> = T extends TranslateMessage

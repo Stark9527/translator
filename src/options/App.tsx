@@ -638,7 +638,7 @@ export default function App() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                从翻译页或划词翻译添加到卡片库时，将自动保存到此分组
+                从翻译页或划词翻译添加到卡片时，将自动保存到此分组
               </p>
             </div>
           </CardContent>

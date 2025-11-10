@@ -107,6 +107,23 @@ export class DictionaryTranslator implements ITranslator {
       phonetic = this.freeDictService.extractPhonetic(freeDictResult.value);
       audioUrl = this.freeDictService.extractAudioUrl(freeDictResult.value);
       freeDictMeaningsMap = this.freeDictService.extractAllMeanings(freeDictResult.value);
+    } else {
+      // Free Dictionary查询失败（可能是复数/变形），尝试查询标准形式
+      // Microsoft Dictionary返回的normalizedSource就是词根形式
+      const normalizedWord = msLookupResponse.normalizedSource;
+      if (normalizedWord && normalizedWord.toLowerCase() !== text.trim().toLowerCase()) {
+        console.info(`尝试查询词根形式: ${normalizedWord}`);
+        try {
+          const fallbackResult = await this.freeDictService.lookup(normalizedWord, 'en');
+          if (fallbackResult) {
+            phonetic = this.freeDictService.extractPhonetic(fallbackResult);
+            audioUrl = this.freeDictService.extractAudioUrl(fallbackResult);
+            freeDictMeaningsMap = this.freeDictService.extractAllMeanings(fallbackResult);
+          }
+        } catch (error) {
+          console.warn('查询词根形式失败:', error);
+        }
+      }
     }
 
     // 获取例句（只为每个词性的最高置信度翻译）

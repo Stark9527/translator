@@ -145,7 +145,7 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
         <div className="flex-1 overflow-auto p-4">
           {/* 创建/编辑表单 */}
           <div className="mb-6 p-4 bg-muted rounded-lg">
-            <h3 className="text-sm font-semibold mb-3">
+            <h3 className="text-sm font-medium mb-3">
               {editingGroup ? '编辑分组' : '创建新分组'}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -192,7 +192,7 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
 
           {/* 分组列表 */}
           <div>
-            <h3 className="text-sm font-semibold mb-3">所有分组 ({groups.length})</h3>
+            <h3 className="text-sm font-medium mb-3">所有分组 ({groups.length})</h3>
             <div className="space-y-2">
               {groups.map((group) => (
                 <div

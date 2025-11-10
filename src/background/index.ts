@@ -150,6 +150,29 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
       return groups;
     }
 
+    case 'CHECK_FLASHCARD_EXISTS': {
+      // 检查卡片是否存在
+      const { word, sourceLanguage, targetLanguage } = payload as {
+        word: string;
+        sourceLanguage: string;
+        targetLanguage: string;
+      };
+      const exists = await flashcardService.exists(word, sourceLanguage, targetLanguage);
+      return exists;
+    }
+
+    case 'SAVE_SELECTION': {
+      // 保存划词内容到 session storage（由 content script 触发）
+      const { text, timestamp } = payload as { text: string; timestamp: number };
+      console.info('保存划词内容:', { text, timestamp });
+      await chrome.storage.session.set({
+        recentSelectionText: text,
+        recentSelectionTimestamp: timestamp
+      });
+      console.info('✅ 划词内容已保存到 session storage');
+      return { success: true };
+    }
+
     default:
       throw new Error(`Unknown message type: ${type}`);
   }

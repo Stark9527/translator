@@ -11,7 +11,7 @@ interface TabItem {
 
 const tabs: TabItem[] = [
   { path: '/', label: '翻译', icon: Languages },
-  { path: '/flashcards', label: '卡片库', icon: Library },
+  { path: '/flashcards', label: '卡片', icon: Library },
   { path: '/study', label: '学习', icon: GraduationCap },
   { path: '/statistics', label: '统计', icon: BarChart3 },
 ];

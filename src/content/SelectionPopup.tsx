@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { TranslateResult, UserConfig } from '@/types';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { Volume2, Copy, BookmarkPlus, CheckCircle2, XCircle } from 'lucide-react';
+import { Volume2, BookmarkPlus } from 'lucide-react';
 
 export default function SelectionPopup() {
   const [showIcon, setShowIcon] = useState(false); // 控制 icon 是否显示
@@ -15,8 +15,7 @@ export default function SelectionPopup() {
   const [translationResult, setTranslationResult] = useState<TranslateResult | null>(null); // 翻译结果
   const [config, setConfig] = useState<UserConfig | null>(null); // 用户配置
   const [isSavingFlashcard, setIsSavingFlashcard] = useState(false); // 保存FlashCard状态
-  const [saveFlashcardMessage, setSaveFlashcardMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null); // 保存提示
-  const [isAlertFadingOut, setIsAlertFadingOut] = useState(false); // Alert淡出状态
+  const [isCardExists, setIsCardExists] = useState(false); // 卡片是否已存在
   const iconRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const isOpenRef = useRef(false);
@@ -42,8 +41,11 @@ export default function SelectionPopup() {
     let lastSelectedText = ''; // 记录上一次选中的文字
 
     const handleMouseUp = (e: MouseEvent) => {
+      console.info('MouseUp 事件触发');
+
       // 如果 popup 已打开，不处理新的划词（用户正在使用 popup）
       if (showPopupRef.current) {
+        console.info('Popup 已打开，忽略');
         return;
       }
 
@@ -52,14 +54,28 @@ export default function SelectionPopup() {
       const selection = window.getSelection();
       const text = selection?.toString().trim();
 
+      console.info('选中的文本:', text, '长度:', text?.length);
+
       if (text && text.length > 0 && text.length < 500) {
         // 如果选中的文字和上次相同，说明用户只是点击了已划词区域，不重新显示 icon
         if (text === lastSelectedText) {
+          console.info('与上次选中的文本相同，忽略');
           return;
         }
 
+        console.info('准备显示 icon');
         lastSelectedText = text; // 更新记录
         setSelectedText(text);
+
+        // 通过 background script 保存划词内容（content script 无法直接访问 session storage）
+        chrome.runtime.sendMessage({
+          type: 'SAVE_SELECTION',
+          payload: { text, timestamp: Date.now() }
+        }).then(() => {
+          console.info('✅ 划词内容已发送到 background 保存');
+        }).catch(err => {
+          console.error('❌ 保存划词内容失败:', err);
+        });
 
         // 获取鼠标松开时的位置（光标位置）
         const mouseX = e.clientX;
@@ -157,6 +173,8 @@ export default function SelectionPopup() {
 
       if (response.success && response.data) {
         setTranslationResult(response.data);
+        // 检查卡片是否已存在
+        await checkCardExists(response.data);
       } else {
         setError(response.error || '翻译失败，请重试');
       }
@@ -165,6 +183,28 @@ export default function SelectionPopup() {
       setError(err instanceof Error ? err.message : '翻译失败，请重试');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 检查卡片是否已存在
+  const checkCardExists = async (translation: TranslateResult) => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'CHECK_FLASHCARD_EXISTS',
+        payload: {
+          word: translation.text,
+          sourceLanguage: translation.from,
+          targetLanguage: translation.to,
+        },
+      });
+
+      if (response.success) {
+        setIsCardExists(response.data);
+      }
+    } catch (err) {
+      console.error('Check card exists error:', err);
+      // 检查失败时默认为不存在，允许用户添加
+      setIsCardExists(false);
     }
   };
 
@@ -193,17 +233,6 @@ export default function SelectionPopup() {
     }
   };
 
-  // 复制函数
-  const handleCopy = async (text: string) => {
-    if (!text.trim()) return;
-
-    try {
-      await navigator.clipboard.writeText(text);
-      // 复制成功，可以添加提示
-    } catch (error) {
-      console.error('Copy error:', error);
-    }
-  };
 
   // 保存到FlashCard
   const handleSaveToFlashcard = async () => {
@@ -213,7 +242,6 @@ export default function SelectionPopup() {
     }
 
     setIsSavingFlashcard(true);
-    setSaveFlashcardMessage(null);
 
     try {
       console.info('Saving flashcard:', translationResult);
@@ -232,17 +260,8 @@ export default function SelectionPopup() {
 
       if (response.success && response.data) {
         console.info('Flashcard saved successfully:', response.data);
-        setIsAlertFadingOut(false);
-        setSaveFlashcardMessage({ type: 'success', text: '已保存到卡片库' });
-
-        // 2.7秒后触发淡出动画，然后0.3秒后清除提示（总共3秒）
-        setTimeout(() => {
-          setIsAlertFadingOut(true);
-          setTimeout(() => {
-            setSaveFlashcardMessage(null);
-            setIsAlertFadingOut(false);
-          }, 300);
-        }, 2700);
+        // 更新卡片已存在状态
+        setIsCardExists(true);
       } else {
         throw new Error(response.error || '保存失败');
       }
@@ -254,21 +273,7 @@ export default function SelectionPopup() {
         errorMessage: error instanceof Error ? error.message : String(error),
         errorStack: error instanceof Error ? error.stack : undefined
       });
-
-      setIsAlertFadingOut(false);
-      setSaveFlashcardMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : '保存失败，请重试'
-      });
-
-      // 2.7秒后触发淡出动画，然后0.3秒后清除提示（总共3秒）
-      setTimeout(() => {
-        setIsAlertFadingOut(true);
-        setTimeout(() => {
-          setSaveFlashcardMessage(null);
-          setIsAlertFadingOut(false);
-        }, 300);
-      }, 2700);
+      // 保存失败，可以在这里添加错误处理逻辑
     } finally {
       setIsSavingFlashcard(false);
     }
@@ -281,8 +286,7 @@ export default function SelectionPopup() {
     setShowPopup(false);
     setTranslationResult(null); // 清空翻译结果
     setError(null); // 清空错误信息
-    setSaveFlashcardMessage(null); // 清空保存提示
-    setIsAlertFadingOut(false); // 重置Alert淡出状态
+    setIsCardExists(false); // 重置卡片存在状态
   };
 
   // 鼠标进入icon，隐藏 icon 并展开 popup 面板
@@ -475,7 +479,7 @@ export default function SelectionPopup() {
             {/* 原文 */}
             <div
               style={{
-                fontSize: '16px',
+                fontSize: '14px',
                 color: '#111827',
                 fontWeight: '600',
               }}
@@ -486,7 +490,7 @@ export default function SelectionPopup() {
             {translationResult?.phonetic && (
               <div
                 style={{
-                  fontSize: '12px',
+                  fontSize: '11px',
                   color: '#8b5cf6',
                 }}
               >
@@ -497,7 +501,7 @@ export default function SelectionPopup() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleSpeak(selectedText, config?.defaultSourceLang)}
+              onClick={() => handleSpeak(selectedText, translationResult?.from || config?.defaultSourceLang)}
               style={{
                 height: '24px',
                 padding: '0 4px',
@@ -527,49 +531,37 @@ export default function SelectionPopup() {
               {/* 只在有翻译结果时显示操作按钮 */}
               {translationResult && !isLoading && !error && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {/* 复制译文按钮 */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopy(translationResult.translation)}
-                    style={{
-                      height: '20px',
-                      padding: '0 4px',
-                      minWidth: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    title="复制译文"
-                  >
-                    <Icon icon={Copy} size="xs" />
-                  </Button>
                   {/* 保存到FlashCard按钮 - 带文字描述，作为一个整体 */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSaveToFlashcard}
-                    disabled={isSavingFlashcard}
-                    className="flashcard-save-button"
-                    style={{
-                      height: '20px',
-                      padding: '0 6px',
-                      minWidth: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                    title={isSavingFlashcard ? '保存中...' : '添加到卡片库'}
-                  >
-                    <Icon icon={BookmarkPlus} size="xs" />
-                    <span style={{ fontSize: '12px', lineHeight: '1' }}>添加到卡片</span>
-                  </Button>
+                  <div title={isCardExists ? '已添加到卡片' : (isSavingFlashcard ? '保存中...' : '添加到卡片')}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSaveToFlashcard}
+                      disabled={isSavingFlashcard || isCardExists}
+                      className="flashcard-save-button"
+                      style={{
+                        height: '20px',
+                        padding: '0 6px',
+                        minWidth: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        cursor: isCardExists ? 'not-allowed' : 'pointer',
+                        opacity: isCardExists ? 0.5 : 1,
+                      }}
+                    >
+                      <Icon icon={BookmarkPlus} size="xs" />
+                      <span style={{ fontSize: '12px', lineHeight: '1' }}>
+                        {isCardExists ? '已添加' : '添加到卡片'}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
             <div
               style={{
-                fontSize: '15px',
+                fontSize: '14px',
                 color: '#4b5563',
                 lineHeight: '1.6',
                 minHeight: '40px',
@@ -613,10 +605,10 @@ export default function SelectionPopup() {
                           <div key={meaningIndex} style={{ marginBottom: meaningIndex < translationResult.meanings!.length - 1 ? '16px' : '0' }}>
                             {/* 词性和翻译（同一行，用分号分隔） */}
                             <div style={{ marginBottom: '8px', lineHeight: '1.6' }}>
-                              <span style={{ fontSize: '12px', color: '#5e5d59', fontWeight: '600' }}>
+                              <span style={{ fontSize: '11px', color: '#5e5d59', fontWeight: '600' }}>
                                 {meaning.partOfSpeech}.
                               </span>
-                              <span style={{ fontSize: '14px', color: '#111827', fontWeight: '600' }}>
+                              <span style={{ fontSize: '13px', color: '#111827', fontWeight: '600' }}>
                                 {' '}
                                 {meaning.translations.slice(0, 5).map(trans => trans.text).join('；')}
                               </span>
@@ -634,7 +626,7 @@ export default function SelectionPopup() {
                                   <div key={exIdx} style={{ marginBottom: exIdx < allExamples.length - 1 ? '8px' : '0' }}>
                                     {/* 英文例句 */}
                                     <div style={{
-                                      fontSize: '14px',
+                                      fontSize: '13px',
                                       color: '#111827',
                                       marginBottom: '2px',
                                       lineHeight: '1.5'
@@ -643,7 +635,7 @@ export default function SelectionPopup() {
                                     </div>
                                     {/* 中文翻译 */}
                                     <div style={{
-                                      fontSize: '13px',
+                                      fontSize: '12px',
                                       color: '#6b7280',
                                       lineHeight: '1.5'
                                     }}>
@@ -669,40 +661,6 @@ export default function SelectionPopup() {
                 </div>
               )}
             </div>
-            {/* 保存提示消息 - 自定义Alert样式，带淡入淡出动画 */}
-            {saveFlashcardMessage && (
-              <div
-                style={{
-                  marginTop: '10px',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '13px',
-                  lineHeight: '1.5',
-                  border: saveFlashcardMessage.type === 'success'
-                    ? '1px solid rgba(34, 197, 94, 0.2)'
-                    : '1px solid rgba(239, 68, 68, 0.2)',
-                  backgroundColor: saveFlashcardMessage.type === 'success'
-                    ? 'rgba(240, 253, 244, 1)'
-                    : 'rgba(254, 242, 242, 1)',
-                  color: saveFlashcardMessage.type === 'success'
-                    ? '#16a34a'
-                    : '#dc2626',
-                  animation: isAlertFadingOut
-                    ? 'alertFadeOut 0.3s ease-in-out forwards'
-                    : 'alertFadeIn 0.3s ease-in-out',
-                }}
-              >
-                {saveFlashcardMessage.type === 'success' ? (
-                  <CheckCircle2 style={{ width: '16px', height: '16px', flexShrink: 0 }} />
-                ) : (
-                  <XCircle style={{ width: '16px', height: '16px', flexShrink: 0 }} />
-                )}
-                <span>{saveFlashcardMessage.text}</span>
-              </div>
-            )}
           </div>
         </div>
       )}

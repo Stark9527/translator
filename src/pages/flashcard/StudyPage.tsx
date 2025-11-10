@@ -179,7 +179,7 @@ export default function StudyPage() {
         </button>
 
         <div className="mt-8 p-4 bg-muted rounded-lg max-w-md">
-          <h3 className="text-sm font-semibold text-foreground mb-2">快捷键提示</h3>
+          <h3 className="text-sm font-medium text-foreground mb-2">快捷键提示</h3>
           <ul className="text-xs text-muted-foreground space-y-1">
             <li><kbd className="px-1.5 py-0.5 bg-background border border-border rounded">空格</kbd> - 翻转卡片</li>
             <li><kbd className="px-1.5 py-0.5 bg-background border border-border rounded">1</kbd> - 重来（完全忘记）</li>

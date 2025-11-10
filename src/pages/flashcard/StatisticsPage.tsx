@@ -141,7 +141,7 @@ export default function StatisticsPage() {
       {/* 熟练度分布 */}
       {proficiencyData.length > 0 && (
         <div className="p-4 bg-card border border-border rounded-lg mb-6">
-          <h2 className="text-sm font-semibold text-foreground mb-4">熟练度分布</h2>
+          <h2 className="text-sm font-medium text-foreground mb-4">熟练度分布</h2>
           <div className="flex items-center justify-center">
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
@@ -183,7 +183,7 @@ export default function StatisticsPage() {
       {/* 学习曲线 */}
       {learningCurve.length > 0 && (
         <div className="p-4 bg-card border border-border rounded-lg">
-          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
             <Icon icon={TrendingUp} size="sm" className="text-primary" />
             <span>最近 7 天学习曲线</span>
           </h2>

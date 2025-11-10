@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, SortAsc, Library, Settings } from 'lucide-react';
+import { Search, SortAsc, Library, Settings, CheckSquare, X, Trash2, FolderInput } from 'lucide-react';
 import type { Flashcard, FlashcardGroup } from '@/types/flashcard';
 import { ProficiencyLevel } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
@@ -54,9 +54,15 @@ export default function FlashcardListPage() {
   const [showFavoriteOnly, setShowFavoriteOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 批量操作相关状态
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
+
   // 模态框状态
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; cardId: string; cardWord: string } | null>(null);
   const [moveModal, setMoveModal] = useState<{ show: boolean; cardId: string; cardWord: string; currentGroupId: string } | null>(null);
+  const [batchDeleteModal, setBatchDeleteModal] = useState(false); // 批量删除确认模态框
+  const [batchMoveModal, setBatchMoveModal] = useState(false); // 批量移动确认模态框
 
   // 当从其他页面返回时重新加载数据
   useEffect(() => {
@@ -75,6 +81,20 @@ export default function FlashcardListPage() {
     applyFiltersAndSort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flashcards, searchQuery, selectedProficiency, selectedGroupId, sortBy, sortOrder, showFavoriteOnly]);
+
+  // 当筛选条件改变时，清理不在当前筛选结果中的选中项
+  useEffect(() => {
+    if (batchMode && selectedCardIds.size > 0) {
+      const currentFilteredIds = new Set(filteredCards.map(card => card.id));
+      const newSelectedIds = new Set(
+        Array.from(selectedCardIds).filter(id => currentFilteredIds.has(id))
+      );
+      if (newSelectedIds.size !== selectedCardIds.size) {
+        setSelectedCardIds(newSelectedIds);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCards, batchMode]);
 
   const loadFlashcards = async () => {
     setIsLoading(true);
@@ -204,6 +224,79 @@ export default function FlashcardListPage() {
     setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
   };
 
+  // 进入/退出批量操作模式
+  const toggleBatchMode = () => {
+    setBatchMode(prev => !prev);
+    setSelectedCardIds(new Set()); // 清空选择
+  };
+
+  // 切换单个卡片的选中状态
+  const toggleCardSelection = (cardId: string) => {
+    setSelectedCardIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(cardId)) {
+        newSet.delete(cardId);
+      } else {
+        newSet.add(cardId);
+      }
+      return newSet;
+    });
+  };
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedCardIds.size === filteredCards.length) {
+      // 已全选，则取消全选
+      setSelectedCardIds(new Set());
+    } else {
+      // 未全选，则全选当前筛选后的卡片
+      setSelectedCardIds(new Set(filteredCards.map(card => card.id)));
+    }
+  };
+
+  // 批量删除
+  const handleBatchDelete = () => {
+    if (selectedCardIds.size === 0) return;
+    setBatchDeleteModal(true);
+  };
+
+  const confirmBatchDelete = async () => {
+    try {
+      await Promise.all(
+        Array.from(selectedCardIds).map(id => flashcardService.delete(id))
+      );
+      await loadFlashcards();
+      setSelectedCardIds(new Set());
+      setBatchMode(false);
+      setBatchDeleteModal(false);
+    } catch (error) {
+      console.error('Failed to batch delete:', error);
+      alert('批量删除失败，请重试');
+    }
+  };
+
+  // 批量移动
+  const handleBatchMove = () => {
+    if (selectedCardIds.size === 0) return;
+    setBatchMoveModal(true);
+  };
+
+  const confirmBatchMove = async (targetGroupId: string) => {
+    try {
+      await Promise.all(
+        Array.from(selectedCardIds).map(id => flashcardService.moveToGroup(id, targetGroupId))
+      );
+      await loadFlashcards();
+      await loadGroups();
+      setSelectedCardIds(new Set());
+      setBatchMode(false);
+      setBatchMoveModal(false);
+    } catch (error) {
+      console.error('Failed to batch move:', error);
+      alert('批量移动失败，请重试');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -218,9 +311,9 @@ export default function FlashcardListPage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* 头部 */}
-      <div className="p-4 border-b border-border bg-background">
+      <div className="px-4 py-2 border-b border-border bg-background">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-lg font-bold text-foreground">卡片库</h1>
+          <h1 className="text-lg font-bold text-foreground">卡片</h1>
           <Button
             variant="secondary"
             size="sm"
@@ -237,7 +330,7 @@ export default function FlashcardListPage() {
           <Icon icon={Search} size="sm" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="搜索单词、翻译或标签..."
+            placeholder="搜索单词、翻译"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8 text-sm"
@@ -316,7 +409,66 @@ export default function FlashcardListPage() {
           </div>
 
           {/* 第二行：统计 */}
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            {/* 批量操作按钮 */}
+            <div className="flex items-center gap-0.5">
+              {batchMode ? (
+                <>
+                  {/* 全选checkbox */}
+                  <label className="flex items-center gap-1.5 cursor-pointer px-1">
+                    <Checkbox
+                      checked={selectedCardIds.size === filteredCards.length && filteredCards.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                    <span className="text-xs text-muted-foreground">全选</span>
+                  </label>
+
+                  {/* 批量操作按钮 - 只有选中卡片时显示 */}
+                  {selectedCardIds.size > 0 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-1 text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={handleBatchMove}
+                      >
+                        <Icon icon={FolderInput} size="xs" />
+                        <span className="ml-1 text-xs">({selectedCardIds.size})</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={handleBatchDelete}
+                      >
+                        <Icon icon={Trash2} size="xs" />
+                        <span className="ml-1 text-xs">({selectedCardIds.size})</span>
+                      </Button>
+                    </>
+                  )}
+                  {/* 取消按钮 */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={toggleBatchMode}
+                  >
+                    <Icon icon={X} size="xs" />
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 px-1"
+                  onClick={toggleBatchMode}
+                  title="批量操作"
+                >
+                  <Icon icon={CheckSquare} size="sm" className="text-muted-foreground" />
+                </Button>
+              )}
+            </div>
+
             {/* 统计 */}
             <div className="text-muted-foreground whitespace-nowrap">
               {filteredCards.length} / {flashcards.length} 张
@@ -330,7 +482,7 @@ export default function FlashcardListPage() {
         {filteredCards.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
             <Icon icon={Library} size="xl" className="text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">
+            <h3 className="text-lg font-medium text-foreground mb-2">
               {flashcards.length === 0 ? '还没有卡片' : '没有找到匹配的卡片'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
@@ -351,6 +503,9 @@ export default function FlashcardListPage() {
                   onToggleFavorite={handleToggleFavorite}
                   onDelete={handleDelete}
                   onMoveToGroup={handleMoveToGroup}
+                  batchMode={batchMode}
+                  isSelected={selectedCardIds.has(card.id)}
+                  onToggleSelect={toggleCardSelection}
                 />
               );
             })}
@@ -408,6 +563,60 @@ export default function FlashcardListPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMoveModal(null)} className="w-full">
+              取消
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量删除确认对话框 */}
+      <Dialog open={batchDeleteModal} onOpenChange={setBatchDeleteModal}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>确认批量删除</DialogTitle>
+            <DialogDescription>
+              确定要删除选中的 <span className="font-medium text-foreground">{selectedCardIds.size}</span> 张卡片吗？此操作无法撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setBatchDeleteModal(false)}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={confirmBatchDelete}>
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量移动对话框 */}
+      <Dialog open={batchMoveModal} onOpenChange={setBatchMoveModal}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>批量移动到分组</DialogTitle>
+            <DialogDescription>
+              将选中的 <span className="font-medium text-foreground">{selectedCardIds.size}</span> 张卡片移动到：
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-auto py-4">
+            {groups.map(group => (
+              <Button
+                key={group.id}
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => confirmBatchMove(group.id)}
+              >
+                <div className="text-left flex-1">
+                  <div className="font-medium text-foreground">{group.name}</div>
+                  {group.description && (
+                    <div className="text-xs text-muted-foreground mt-0.5">{group.description}</div>
+                  )}
+                </div>
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBatchMoveModal(false)} className="w-full">
               取消
             </Button>
           </DialogFooter>

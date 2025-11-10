@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TranslateResult, UserConfig, LanguageCode } from '@/types';
+import type { FlashcardGroup } from '@/types/flashcard';
 import { Icon } from '@/components/ui/icon';
-import { Volume2, Copy, ArrowLeftRight, BookmarkPlus } from 'lucide-react';
+import { Volume2, ArrowLeftRight, BookmarkPlus } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '@/utils/constants';
 import { flashcardService } from '@/services/flashcard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -27,13 +28,107 @@ export default function TranslatePage() {
   const [sourceLang, setSourceLang] = useState<LanguageCode>('auto');
   const [targetLang, setTargetLang] = useState<LanguageCode>('zh-CN');
   const [isSavingFlashcard, setIsSavingFlashcard] = useState(false);
-  const [saveFlashcardMessage, setSaveFlashcardMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isCardExists, setIsCardExists] = useState(false);
+  const [groups, setGroups] = useState<FlashcardGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('default');
   const isInitialMount = useRef(true);
+  const lastTranslatedText = useRef<string>(''); // 记录上次翻译的文本
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // 输入框引用
 
   useEffect(() => {
     // 加载配置
     loadConfig();
   }, []);
+
+  // 自动聚焦和检测划词/剪贴板内容
+  useEffect(() => {
+    // 只在组件首次挂载时执行
+    if (!config) return;
+
+    const autoFocusAndFillText = async () => {
+      let textToFill = '';
+      let source = ''; // 用于调试：记录内容来源
+
+      try {
+        // 获取上次已使用的内容
+        const { lastUsedText } = await chrome.storage.session.get(['lastUsedText']);
+
+        // 1. 检查剪贴板内容（最高优先级）
+        let clipboardText = '';
+        try {
+          clipboardText = await navigator.clipboard.readText();
+          console.info('剪贴板内容:', clipboardText);
+        } catch (clipboardError) {
+          console.info('无法读取剪贴板:', clipboardError);
+        }
+
+        // 2. 检查最近的划词内容（10秒内有效）
+        const { recentSelectionText, recentSelectionTimestamp } = await chrome.storage.session.get([
+          'recentSelectionText',
+          'recentSelectionTimestamp'
+        ]);
+
+        const now = Date.now();
+        const isRecentSelection = recentSelectionTimestamp && (now - recentSelectionTimestamp < 10000); // 延长到10秒
+
+        console.info('检查划词内容:', {
+          recentSelectionText,
+          recentSelectionTimestamp,
+          timeDiff: recentSelectionTimestamp ? now - recentSelectionTimestamp : 'N/A',
+          isRecentSelection,
+          lastUsedText
+        });
+
+        // 3. 优先级判断：剪贴板 > 划词
+        if (clipboardText && clipboardText.trim() && clipboardText !== lastUsedText) {
+          // 优先使用剪贴板
+          textToFill = clipboardText;
+          source = 'clipboard';
+        } else if (isRecentSelection && recentSelectionText && recentSelectionText.trim() && recentSelectionText !== lastUsedText) {
+          // 如果剪贴板无效，使用划词内容
+          textToFill = recentSelectionText;
+          source = 'selection';
+        }
+
+        // 清除划词内容记录（无论是否使用）
+        if (recentSelectionText) {
+          await chrome.storage.session.remove(['recentSelectionText', 'recentSelectionTimestamp']);
+        }
+
+        console.info('自动填充决策:', { textToFill: textToFill.substring(0, 50), source });
+
+        // 4. 填充内容并触发翻译
+        if (textToFill) {
+          setInputText(textToFill);
+          // 记录已使用的内容
+          await chrome.storage.session.set({ lastUsedText: textToFill });
+
+          // 等待 DOM 更新后，触发翻译
+          setTimeout(() => {
+            // 自动触发翻译
+            handleTranslate(textToFill);
+          }, 0);
+        } else {
+          // 没有任何内容，只聚焦
+          textareaRef.current?.focus();
+        }
+      } catch (error) {
+        // 如果出现任何错误，至少保证聚焦
+        console.error('自动填充文本失败:', error);
+        textareaRef.current?.focus();
+      }
+    };
+
+    autoFocusAndFillText();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
+
+  // 当输入框清空时,清空上次翻译的文本记录
+  useEffect(() => {
+    if (!inputText.trim()) {
+      lastTranslatedText.current = '';
+    }
+  }, [inputText]);
 
   // 当语言切换时，如果译文存在则将译文移到输入框并重新翻译
   useEffect(() => {
@@ -66,7 +161,13 @@ export default function TranslatePage() {
         setConfig(response.data);
         setSourceLang(response.data.defaultSourceLang || 'auto');
         setTargetLang(response.data.defaultTargetLang || 'zh-CN');
+        // 设置默认选中的分组
+        setSelectedGroupId(response.data.defaultFlashcardGroupId || 'default');
       }
+
+      // 加载所有分组
+      const allGroups = await flashcardService.getAllGroups();
+      setGroups(allGroups);
     } catch (error) {
       console.error('Failed to load config:', error);
     }
@@ -92,6 +193,10 @@ export default function TranslatePage() {
 
       if (response.success && response.data) {
         setTranslationResult(response.data);
+        // 更新上次翻译的文本
+        lastTranslatedText.current = text;
+        // 检查卡片是否已存在
+        await checkCardExists(response.data);
       } else {
         setError(response.error || '翻译失败，请重试');
       }
@@ -103,6 +208,28 @@ export default function TranslatePage() {
     }
   };
 
+  // 检查卡片是否已存在
+  const checkCardExists = async (translation: TranslateResult) => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'CHECK_FLASHCARD_EXISTS',
+        payload: {
+          word: translation.text,
+          sourceLanguage: translation.from,
+          targetLanguage: translation.to,
+        },
+      });
+
+      if (response.success) {
+        setIsCardExists(response.data);
+      }
+    } catch (err) {
+      console.error('Check card exists error:', err);
+      // 检查失败时默认为不存在，允许用户添加
+      setIsCardExists(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -110,9 +237,11 @@ export default function TranslatePage() {
     }
   };
 
-  // 输入框失焦时自动翻译
+  // 输入框失焦时自动翻译(仅当文本发生变化时)
   const handleBlur = () => {
-    if (inputText.trim() && isApiKeyConfigured()) {
+    const trimmedText = inputText.trim();
+    // 只有当文本非空、API已配置、且文本与上次翻译的文本不同时才翻译
+    if (trimmedText && isApiKeyConfigured() && trimmedText !== lastTranslatedText.current) {
       handleTranslate();
     }
   };
@@ -148,39 +277,21 @@ export default function TranslatePage() {
     }
   };
 
-  const handleCopy = async (text: string) => {
-    if (!text.trim()) return;
-
-    try {
-      await navigator.clipboard.writeText(text);
-      // 可以添加一个提示，告诉用户复制成功
-      console.log('复制成功');
-    } catch (error) {
-      console.error('Copy error:', error);
-    }
-  };
 
   const handleSaveToFlashcard = async () => {
     if (!translationResult) return;
 
     setIsSavingFlashcard(true);
-    setSaveFlashcardMessage(null);
 
     try {
       await flashcardService.createFromTranslation(translationResult, {
-        groupId: config?.defaultFlashcardGroupId || 'default'
+        groupId: selectedGroupId
       });
-      setSaveFlashcardMessage({ type: 'success', text: '已保存到FlashCard' });
-      // 3秒后自动清除提示
-      setTimeout(() => setSaveFlashcardMessage(null), 3000);
+      // 更新卡片已存在状态
+      setIsCardExists(true);
     } catch (error) {
       console.error('Save flashcard error:', error);
-      setSaveFlashcardMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : '保存失败，请重试'
-      });
-      // 5秒后自动清除错误提示
-      setTimeout(() => setSaveFlashcardMessage(null), 5000);
+      // 保存失败，可以在这里添加错误处理逻辑
     } finally {
       setIsSavingFlashcard(false);
     }
@@ -204,12 +315,6 @@ export default function TranslatePage() {
     }
   };
 
-  // 获取语言名称
-  const getLanguageName = (code: LanguageCode) => {
-    const lang = SUPPORTED_LANGUAGES.find(l => l.code === code);
-    return lang?.name || code;
-  };
-
   return (
     <TooltipProvider>
       <div className="flex-1 p-4 flex flex-col overflow-auto">
@@ -220,9 +325,9 @@ export default function TranslatePage() {
         />
 
         {/* 语言选择器 */}
-        <div className="mb-3 flex items-center gap-2 p-2 bg-muted rounded-md">
+        <div className="mb-2 flex items-center gap-2 p-1.5 bg-muted rounded-md">
           <Select value={sourceLang} onValueChange={(value) => setSourceLang(value as LanguageCode)}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -237,6 +342,7 @@ export default function TranslatePage() {
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={handleSwapLanguages}
             disabled={sourceLang === 'auto'}
             title={sourceLang === 'auto' ? '自动检测时无法切换' : '切换语言'}
@@ -245,7 +351,7 @@ export default function TranslatePage() {
           </Button>
 
           <Select value={targetLang} onValueChange={(value) => setTargetLang(value as LanguageCode)}>
-            <SelectTrigger className="flex-1">
+            <SelectTrigger className="flex-1 h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -279,32 +385,16 @@ export default function TranslatePage() {
 
         {/* 输入和翻译结果区域 */}
         <div className="flex-1 flex flex-col gap-4 min-h-0">
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-[0.4] flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-sm font-medium">
+              <Label className="h-8 text-sm font-medium" style={{lineHeight: '2rem'}}>
                 输入文本
               </Label>
-              {inputText.trim() && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleSpeak(inputText, sourceLang !== 'auto' ? sourceLang : undefined)}
-                    >
-                      <Icon icon={Volume2} size="sm" className="text-muted-foreground" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>朗读原文</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
             <Textarea
+              ref={textareaRef}
               className="flex-1 resize-none text-sm"
-              placeholder="输入文本后失焦自动翻译，或按 Ctrl/Cmd + Enter"
+              placeholder="请输入要翻译的文本"
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -315,61 +405,55 @@ export default function TranslatePage() {
           {/* 翻译结果区域 */}
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-sm font-medium">
+              <Label className="h-8 text-sm font-medium" style={{lineHeight: '2rem'}}>
                 翻译结果
               </Label>
               {translationResult && (
                 <div className="flex items-center gap-1">
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger className="h-auto w-auto min-w-0 border-0 bg-accent/50 text-xs px-2 py-1 focus:ring-0 focus:ring-offset-0">
+                      <SelectValue placeholder="选择分组" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map(group => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleSpeak(translationResult.translation, targetLang)}
-                      >
-                        <Icon icon={Volume2} size="sm" className="text-muted-foreground" />
-                      </Button>
+                      <div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={handleSaveToFlashcard}
+                          disabled={isSavingFlashcard || isCardExists}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: isCardExists ? 'not-allowed' : 'pointer',
+                            opacity: isCardExists ? 0.5 : 1,
+                          }}
+                        >
+                          <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground" />
+                          <span style={{ fontSize: '12px' }}>
+                            {isCardExists ? '已添加' : '添加到卡片'}
+                          </span>
+                        </Button>
+                      </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>朗读译文</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleCopy(translationResult.translation)}
-                      >
-                        <Icon icon={Copy} size="sm" className="text-muted-foreground" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>复制译文</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={handleSaveToFlashcard}
-                        disabled={isSavingFlashcard}
-                      >
-                        <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isSavingFlashcard ? '保存中...' : '添加到卡片库'}</p>
+                      <p>{isCardExists ? '已添加到卡片' : (isSavingFlashcard ? '保存中...' : '添加到卡片')}</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
               )}
             </div>
-            <div className="flex-1 p-3 border border-input rounded-md bg-muted overflow-auto">
+            <div className="flex-1 rounded-md overflow-auto">
               {isLoading ? (
                 <p className="text-sm text-muted-foreground">翻译中...</p>
               ) : error ? (
@@ -383,84 +467,78 @@ export default function TranslatePage() {
                 <div className="space-y-2">
                   {/* 判断是否有词典信息 */}
                   {translationResult.meanings && translationResult.meanings.length > 0 ? (
-                    <div className="space-y-3">
-                      {/* 音标和主翻译 */}
-                      <div>
-                        {translationResult.phonetic && (
-                          <div className="text-xs text-muted-foreground mb-1">
+                    <div className="space-y-2">
+                      {/* 音标和发音按钮 */}
+                      {translationResult.phonetic && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-purple-600 font-medium">
                             {translationResult.phonetic}
-                          </div>
-                        )}
-                        <div className="text-sm font-semibold text-foreground">
-                          {translationResult.translation}
+                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleSpeak(translationResult.text, translationResult.from)}
+                              >
+                                <Icon icon={Volume2} size="sm" className="text-muted-foreground" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>朗读原文</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
-                      </div>
+                      )}
 
                       {/* 按词性展示翻译 */}
-                      {translationResult.meanings.map((meaning, meaningIndex) => (
-                        <div key={meaningIndex} className="space-y-2">
-                          {/* 词性标题 */}
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="font-semibold text-purple-600">{meaning.partOfSpeechCN}</span>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="text-muted-foreground">{meaning.partOfSpeech}</span>
-                          </div>
+                      {translationResult.meanings.map((meaning, meaningIndex) => {
+                        // 收集该词性下的所有例句，只取第一个
+                        const allExamples = meaning.translations
+                          .flatMap(trans => trans.examples || [])
+                          .slice(0, 1); // 只显示1个例句
 
-                          {/* 翻译列表 */}
-                          {meaning.translations.slice(0, 5).map((trans, transIndex) => (
-                            <div key={transIndex} className={`pl-2 ${transIndex === 0 ? 'border-l-2 border-purple-500' : 'border-l border-border'}`}>
-                              {/* 翻译和置信度 */}
-                              <div className="flex items-baseline gap-2 mb-1">
-                                <span className="text-sm font-medium text-foreground">{trans.text}</span>
-                                <span className="text-xs text-muted-foreground">{Math.round(trans.confidence * 100)}%</span>
-                              </div>
-
-                              {/* 英文定义 */}
-                              {trans.definition && (
-                                <div className="text-xs text-muted-foreground mb-1 leading-relaxed">
-                                  {trans.definition}
-                                </div>
-                              )}
-
-                              {/* 例句（仅第一个翻译显示）*/}
-                              {transIndex === 0 && trans.examples && trans.examples.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                  {trans.examples.slice(0, 2).map((example, exIdx) => (
-                                    <div key={exIdx} className="text-xs bg-accent/50 rounded p-2 space-y-1">
-                                      <div className="text-foreground/80">
-                                        🇬🇧 {example.source}
-                                      </div>
-                                      <div className="text-muted-foreground">
-                                        🇨🇳 {example.target}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                        return (
+                          <div key={meaningIndex} className="space-y-2">
+                            {/* 词性和翻译（同一行，用分号分隔） */}
+                            <div className="leading-relaxed">
+                              <span className="text-xs text-muted-foreground font-medium">
+                                {meaning.partOfSpeech}.
+                              </span>
+                              <span className="text-sm text-foreground font-medium ml-1">
+                                {meaning.translations.slice(0, 5).map(trans => trans.text).join('；')}
+                              </span>
                             </div>
-                          ))}
-                        </div>
-                      ))}
+
+                            {/* 例句 */}
+                            {allExamples.length > 0 && allExamples[0].source && (
+                              <div className="bg-accent/50 rounded-lg p-2 space-y-1">
+                                {allExamples.map((example, exIdx) => (
+                                  <div key={exIdx}>
+                                    {/* 英文例句 */}
+                                    <div className="text-xs text-foreground leading-relaxed mb-1">
+                                      {example.sourcePrefix}
+                                      <span className="text-purple-600 font-medium">{example.sourceTerm}</span>
+                                      {example.sourceSuffix}
+                                    </div>
+                                    {/* 中文翻译 */}
+                                    <div className="text-xs text-muted-foreground leading-relaxed">
+                                      {example.targetPrefix}
+                                      <span className="text-purple-600 font-medium">{example.targetTerm}</span>
+                                      {example.targetSuffix}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     /* 普通翻译结果 */
                     <p className="text-sm text-foreground">{translationResult.translation}</p>
-                  )}
-
-                  <div className="pt-2 border-t border-border text-xs text-muted-foreground">
-                    <span>
-                      {getLanguageName(translationResult.from)} → {getLanguageName(translationResult.to)}
-                    </span>
-                    <span className="mx-2">•</span>
-                    <span>{translationResult.engine}</span>
-                  </div>
-                  {saveFlashcardMessage && (
-                    <Alert variant={saveFlashcardMessage.type === 'success' ? 'success' : 'destructive'} className="mt-2">
-                      <AlertDescription className="text-xs">
-                        {saveFlashcardMessage.type === 'success' ? '✓ ' : '✗ '}
-                        {saveFlashcardMessage.text}
-                      </AlertDescription>
-                    </Alert>
                   )}
                 </div>
               ) : (

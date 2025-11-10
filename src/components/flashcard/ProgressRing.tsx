@@ -62,7 +62,7 @@ export function ProgressRing({
       {/* 百分比文字 */}
       {showLabel && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-semibold text-foreground">
+          <span className="text-xs font-medium text-foreground">
             {Math.round(clampedPercentage)}%
           </span>
         </div>

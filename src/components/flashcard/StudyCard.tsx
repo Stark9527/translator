@@ -75,7 +75,7 @@ export function StudyCard({ flashcard, isFlipped, onFlip }: StudyCardProps) {
             {/* 原文 */}
             <div className="mb-4 pb-4 border-b border-border">
               <p className="text-sm text-muted-foreground mb-1">原文</p>
-              <p className="text-2xl font-semibold text-foreground">{flashcard.word}</p>
+              <p className="text-2xl font-medium text-foreground">{flashcard.word}</p>
             </div>
 
             {/* 翻译 */}

@@ -21,7 +21,7 @@ import {
 export function IconExamples() {
   return (
     <div className="space-y-4 p-4">
-      <h2 className="text-lg font-semibold">Icon 组件示例</h2>
+      <h2 className="text-lg font-medium">Icon 组件示例</h2>
 
       {/* 基础用法 */}
       <div className="space-y-2">
