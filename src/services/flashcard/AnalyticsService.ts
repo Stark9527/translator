@@ -59,12 +59,10 @@ export class AnalyticsService {
     // 计算总复习次数和学习时长
     let totalReviews = 0;
     let totalCorrect = 0;
-    let totalWrong = 0;
 
     flashcards.forEach(card => {
       totalReviews += card.totalReviews;
       totalCorrect += card.correctCount;
-      totalWrong += card.wrongCount;
     });
 
     // 计算平均正确率
@@ -172,6 +170,95 @@ export class AnalyticsService {
     });
 
     return heatmapData;
+  }
+
+  /**
+   * 获取特定分组的整体统计数据
+   */
+  async getOverallStatsByGroup(groupId: string): Promise<OverallStats> {
+    const flashcards = await flashcardDB.getFlashcardsByGroup(groupId);
+    const todayStats = await studySessionService.getTodayStats();
+    const streak = await studySessionService.getStreak();
+
+    // 计算各熟练度的卡片数量
+    const proficiencyCounts = {
+      new: flashcards.filter(c => c.proficiency === 'new').length,
+      learning: flashcards.filter(c => c.proficiency === 'learning').length,
+      review: flashcards.filter(c => c.proficiency === 'review').length,
+      mastered: flashcards.filter(c => c.proficiency === 'mastered').length,
+    };
+
+    // 计算今日到期数量（该分组）
+    const now = new Date();
+    const dueCards = flashcards.filter(c => new Date(c.nextReview) <= now);
+    const todayDue = dueCards.length;
+
+    // 计算总复习次数
+    let totalReviews = 0;
+    let totalCorrect = 0;
+
+    flashcards.forEach(card => {
+      totalReviews += card.totalReviews;
+      totalCorrect += card.correctCount;
+    });
+
+    // 计算平均正确率
+    const averageCorrectRate = totalReviews > 0
+      ? Math.round((totalCorrect / totalReviews) * 100)
+      : 0;
+
+    // 今日正确率（全局的，因为没有按分组的每日统计）
+    const todayCorrectRate = todayStats && todayStats.reviewedCards > 0
+      ? Math.round((todayStats.correctCount / todayStats.reviewedCards) * 100)
+      : 0;
+
+    return {
+      totalCards: flashcards.length,
+      newCards: proficiencyCounts.new,
+      learningCards: proficiencyCounts.learning,
+      reviewCards: proficiencyCounts.review,
+      masteredCards: proficiencyCounts.mastered,
+
+      todayDue,
+      todayReviewed: todayStats?.reviewedCards || 0,
+      todayCorrectRate,
+
+      totalReviews,
+      totalStudyTime: todayStats?.totalStudyTime || 0,
+      averageCorrectRate,
+
+      streak: streak.current,
+      longestStreak: streak.longest,
+    };
+  }
+
+  /**
+   * 获取特定分组的熟练度分布
+   */
+  async getProficiencyDistributionByGroup(groupId: string): Promise<ProficiencyDistribution> {
+    const flashcards = await flashcardDB.getFlashcardsByGroup(groupId);
+
+    const counts = {
+      new: flashcards.filter(c => c.proficiency === 'new').length,
+      learning: flashcards.filter(c => c.proficiency === 'learning').length,
+      review: flashcards.filter(c => c.proficiency === 'review').length,
+      mastered: flashcards.filter(c => c.proficiency === 'mastered').length,
+    };
+
+    return {
+      ...counts,
+      total: counts.new + counts.learning + counts.review + counts.mastered,
+    };
+  }
+
+  /**
+   * 获取特定分组的学习曲线（最近 N 天）
+   * 注意：由于当前没有按分组的每日统计，这里返回全局的学习曲线
+   * TODO: 在未来版本中实现按分组的每日统计
+   */
+  async getLearningCurveByGroup(_groupId: string, days: number = 30): Promise<LearningCurveData[]> {
+    // 目前返回全局学习曲线，因为没有按分组的每日统计
+    return this.getLearningCurve(days);
   }
 
   /**

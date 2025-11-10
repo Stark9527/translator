@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Rating, Grade } from 'ts-fsrs';
 import { Play, RotateCcw, X, GraduationCap, AlertTriangle } from 'lucide-react';
-import type { Flashcard } from '@/types/flashcard';
-import { studySessionService } from '@/services/flashcard';
+import type { Flashcard, FlashcardGroup } from '@/types/flashcard';
+import { studySessionService, flashcardService } from '@/services/flashcard';
 import { StudyCard } from '@/components/flashcard/StudyCard';
 import { ProgressRing } from '@/components/flashcard/ProgressRing';
 import { Icon } from '@/components/ui/icon';
@@ -33,6 +33,22 @@ export default function StudyPage() {
   const [startTime, setStartTime] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [groups, setGroups] = useState<FlashcardGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
+  const [selectedGroupName, setSelectedGroupName] = useState<string>('全部分组');
+
+  // 加载分组列表
+  useEffect(() => {
+    const loadGroups = async () => {
+      try {
+        const allGroups = await flashcardService.getAllGroups();
+        setGroups(allGroups);
+      } catch (error) {
+        console.error('Failed to load groups:', error);
+      }
+    };
+    loadGroups();
+  }, []);
 
   // 加载当前卡片
   const loadCurrentCard = useCallback(() => {
@@ -61,7 +77,13 @@ export default function StudyPage() {
   const startSession = async () => {
     setIsLoading(true);
     try {
-      await studySessionService.createTodayReviewSession();
+      if (selectedGroupId === 'all') {
+        // 学习所有分组的到期卡片
+        await studySessionService.createTodayReviewSession();
+      } else {
+        // 学习特定分组的到期卡片
+        await studySessionService.createCustomSession({ groupId: selectedGroupId });
+      }
       setIsSessionActive(true);
       setStartTime(Date.now());
       loadCurrentCard();
@@ -176,13 +198,41 @@ export default function StudyPage() {
           使用 FSRS 算法智能安排复习，帮助你高效记忆单词
         </p>
 
+        {/* 分组选择器 */}
+        <div className="mb-4 w-full max-w-xs">
+          <label className="block text-sm font-medium text-foreground mb-2">
+            选择学习范围
+          </label>
+          <select
+            value={selectedGroupId}
+            onChange={(e) => {
+              const groupId = e.target.value;
+              setSelectedGroupId(groupId);
+              if (groupId === 'all') {
+                setSelectedGroupName('全部分组');
+              } else {
+                const group = groups.find(g => g.id === groupId);
+                setSelectedGroupName(group?.name || '');
+              }
+            }}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">全部分组</option>
+            {groups.map(group => (
+              <option key={group.id} value={group.id}>
+                {group.name} ({group.cardCount} 张)
+              </option>
+            ))}
+          </select>
+        </div>
+
         <button
           onClick={startSession}
           disabled={isLoading}
           className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
         >
           <Icon icon={Play} size="sm" />
-          <span>{isLoading ? '加载中...' : '开始今日复习'}</span>
+          <span>{isLoading ? '加载中...' : '开始学习'}</span>
         </button>
 
         <div className="mt-8 p-4 bg-muted rounded-lg max-w-md">
@@ -222,6 +272,12 @@ export default function StudyPage() {
           <div className="flex items-center gap-3">
             <ProgressRing percentage={progressPercentage} size={40} showLabel={false} />
             <div>
+              {/* 弱化显示分组名称 */}
+              {selectedGroupId !== 'all' && (
+                <p className="text-xs text-muted-foreground/60 mb-0.5">
+                  {selectedGroupName}
+                </p>
+              )}
               <p className="text-sm font-medium text-foreground">
                 {progress.current} / {progress.total}
               </p>
