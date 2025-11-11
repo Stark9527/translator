@@ -15,7 +15,7 @@ export function PageHeader({ title, subtitle, showSettings = true }: PageHeaderP
 
   return (
     <TooltipProvider>
-      <div className="mb-4 flex items-start justify-between">
+      <div className="mb-2 flex items-start justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">{title}</h1>
           {subtitle && (

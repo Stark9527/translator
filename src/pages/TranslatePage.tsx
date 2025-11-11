@@ -321,7 +321,6 @@ export default function TranslatePage() {
         {/* 页面标题 */}
         <PageHeader
           title="智能翻译助手"
-          subtitle={config ? `当前引擎: ${config.engine === 'google' ? 'Google 翻译' : config.engine}` : '加载中...'}
         />
 
         {/* 语言选择器 */}
