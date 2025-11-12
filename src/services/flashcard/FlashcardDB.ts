@@ -14,7 +14,7 @@ import type {
 export class FlashcardDB {
   private db: IDBDatabase | null = null;
   private readonly dbName = 'FlashcardDB';
-  private readonly version = 1;
+  private readonly version = 2;
   private initPromise: Promise<void> | null = null;
 
   // ObjectStore 名称
@@ -49,6 +49,8 @@ export class FlashcardDB {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const transaction = (event.target as IDBOpenDBRequest).transaction!;
+        const oldVersion = event.oldVersion;
 
         // 创建 flashcards 存储
         if (!db.objectStoreNames.contains(this.STORES.flashcards)) {
@@ -96,6 +98,40 @@ export class FlashcardDB {
           });
 
           console.info('DailyStats object store created');
+        }
+
+        // 版本 1 -> 2：迁移 dailyStats 数据结构
+        if (oldVersion < 2 && db.objectStoreNames.contains(this.STORES.dailyStats)) {
+          const dailyStatsStore = transaction.objectStore(this.STORES.dailyStats);
+          const getAllRequest = dailyStatsStore.getAll();
+
+          getAllRequest.onsuccess = () => {
+            const allStats = getAllRequest.result;
+            console.info(`Migrating ${allStats.length} dailyStats records to v2...`);
+
+            allStats.forEach((stats: any) => {
+              // 添加新字段
+              const updatedStats = {
+                ...stats,
+                masteredCards: 0,
+                totalAnswers: stats.reviewedCards || 0,
+                // 重置旧的计数器，因为旧逻辑是答题次数，新逻辑是去重的卡片数
+                newCards: 0,
+                reviewedCards: 0,
+                studiedCardIds: [],
+                newCardIds: [],
+                masteredCardIds: [],
+              };
+
+              dailyStatsStore.put(updatedStats);
+            });
+
+            console.info('DailyStats migration to v2 completed');
+          };
+
+          getAllRequest.onerror = () => {
+            console.error('Failed to migrate dailyStats:', getAllRequest.error);
+          };
         }
       };
     });
@@ -591,6 +627,25 @@ export class FlashcardDB {
       totalGroups: groups.length,
       totalReviews: reviews.length,
     };
+  }
+
+  /**
+   * 清除所有每日统计数据
+   */
+  async clearDailyStats(): Promise<void> {
+    await this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.STORES.dailyStats], 'readwrite');
+      const store = transaction.objectStore(this.STORES.dailyStats);
+      const request = store.clear();
+
+      request.onsuccess = () => {
+        console.info('DailyStats cleared');
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
   }
 
   /**

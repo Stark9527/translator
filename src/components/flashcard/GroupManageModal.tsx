@@ -3,6 +3,7 @@ import { X, Edit2, Trash2, Folder } from 'lucide-react';
 import type { FlashcardGroup } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
 import { Icon } from '@/components/ui/icon';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface GroupManageModalProps {
   isOpen: boolean;
@@ -125,11 +126,12 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <TooltipProvider>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+        <div
+          className="bg-card border border-border rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* 头部 */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">分组管理</h2>
@@ -224,21 +226,33 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
 
                   {/* 操作按钮 */}
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => startEdit(group)}
-                      className="p-1.5 hover:bg-accent rounded transition-colors"
-                      title="编辑"
-                    >
-                      <Icon icon={Edit2} size="xs" className="text-muted-foreground" />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => startEdit(group)}
+                          className="p-1.5 hover:bg-accent rounded transition-colors"
+                        >
+                          <Icon icon={Edit2} size="xs" className="text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>编辑</p>
+                      </TooltipContent>
+                    </Tooltip>
                     {group.id !== 'default' && (
-                      <button
-                        onClick={() => handleDelete(group)}
-                        className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
-                        title="删除"
-                      >
-                        <Icon icon={Trash2} size="xs" className="text-destructive" />
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleDelete(group)}
+                            className="p-1.5 hover:bg-destructive/10 rounded transition-colors"
+                          >
+                            <Icon icon={Trash2} size="xs" className="text-destructive" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>删除</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                 </div>
@@ -246,7 +260,8 @@ export function GroupManageModal({ isOpen, onClose, onGroupsChanged }: GroupMana
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

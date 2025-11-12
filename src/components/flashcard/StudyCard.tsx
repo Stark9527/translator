@@ -47,13 +47,13 @@ export function StudyCard({ flashcard, isFlipped, onFlip }: StudyCardProps) {
             <h2 className="text-4xl font-bold text-foreground mb-4">{flashcard.word}</h2>
 
             <div className="flex items-center justify-center gap-3 mb-6">
-              {/* 音标 - 在发声按钮左边 */}
+              {/* 音标 */}
               {flashcard.phonetic && (
                 <span className="text-lg text-purple-600 dark:text-purple-400">
                   {flashcard.phonetic}
                 </span>
               )}
-              {/* 发声按钮 - 常驻 */}
+              {/* 发声按钮 */}
               <button
                 onClick={(e) => handleSpeak(flashcard.word, flashcard.sourceLanguage, e)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
@@ -70,36 +70,84 @@ export function StudyCard({ flashcard, isFlipped, onFlip }: StudyCardProps) {
         </div>
 
         {/* 背面 - 翻译和例句 */}
-        <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card border-2 border-green-500 rounded-xl shadow-lg flex flex-col p-8 overflow-auto">
+        <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card border-2 border-green-500 rounded-xl shadow-lg flex flex-col p-5 overflow-auto">
           <div className="flex-1">
             {/* 原文 */}
-            <div className="mb-4 pb-4 border-b border-border">
-              <p className="text-sm text-muted-foreground mb-1">原文</p>
-              <p className="text-2xl font-medium text-foreground">{flashcard.word}</p>
+            <div className="mb-3 pb-3 border-b border-border">
+              <p className="text-xs text-muted-foreground mb-1">原文</p>
+              <div className="flex items-center gap-3">
+                <p className="text-xl font-medium text-foreground">{flashcard.word}</p>
+                {/* 音标 */}
+                {flashcard.phonetic && (
+                  <span className="text-base text-purple-600 dark:text-purple-400">
+                    {flashcard.phonetic}
+                  </span>
+                )}
+                {/* 发声按钮 */}
+                <button
+                  onClick={(e) => handleSpeak(flashcard.word, flashcard.sourceLanguage, e)}
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-accent transition-colors"
+                >
+                  <Icon icon={Volume2} size="sm" className={`text-muted-foreground ${isPlaying ? 'animate-pulse' : ''}`} />
+                </button>
+              </div>
             </div>
 
-            {/* 翻译 */}
-            <div className="mb-4">
-              <p className="text-sm text-muted-foreground mb-1">翻译</p>
-              <p className="text-xl text-foreground whitespace-pre-line">{flashcard.translation}</p>
-              <button
-                onClick={(e) => handleSpeak(flashcard.translation, flashcard.targetLanguage, e)}
-                className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-              >
-                <Icon icon={Volume2} size="xs" />
-                朗读翻译
-              </button>
+            {/* 翻译 - 显示词性和释义 */}
+            <div className="mb-3">
+              <p className="text-xs text-muted-foreground mb-2">翻译</p>
+              {flashcard.meanings && flashcard.meanings.length > 0 ? (
+                <div className="space-y-3">
+                  {flashcard.meanings.map((meaning, meaningIndex) => (
+                    <div key={meaningIndex} className="space-y-1">
+                      {/* 词性 */}
+                      <div className="text-sm font-medium text-primary">
+                        {meaning.partOfSpeech}. {meaning.translations.map(t => t.text).join('; ')}
+                      </div>
+
+                      {/* 示例 */}
+                      {meaning.translations.some(t => t.examples && t.examples.length > 0) && (
+                        <div className="bg-accent/50 rounded-lg p-2 space-y-1">
+                          {meaning.translations
+                            .filter(t => t.examples && t.examples.length > 0)
+                            .slice(0, 1) // 只显示第一个有例句的翻译
+                            .map((trans, transIndex) =>
+                              trans.examples?.slice(0, 1).map((example, exIndex) => (
+                                <div key={`${transIndex}-${exIndex}`} className="text-xs space-y-0.5">
+                                  <p className="text-foreground leading-relaxed">
+                                    {example.sourcePrefix}
+                                    <span className="text-purple-600 font-medium">{example.sourceTerm}</span>
+                                    {example.sourceSuffix}
+                                  </p>
+                                  <p className="text-muted-foreground leading-relaxed">
+                                    {example.targetPrefix}
+                                    <span className="text-purple-600 font-medium">{example.targetTerm}</span>
+                                    {example.targetSuffix}
+                                  </p>
+                                </div>
+                              ))
+                            )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-foreground">{flashcard.translation}</p>
+              )}
             </div>
 
             {/* 例句 */}
             {flashcard.examples && flashcard.examples.length > 0 && (
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground mb-2">例句</p>
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground mb-2">例句</p>
                 <div className="space-y-2">
                   {flashcard.examples.map((example, index) => (
-                    <p key={index} className="text-sm text-foreground italic pl-3 border-l-2 border-primary">
-                      {example}
-                    </p>
+                    <div key={index} className="bg-accent/50 rounded-lg p-2">
+                      <p className="text-xs text-foreground italic leading-relaxed">
+                        {example}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -107,14 +155,14 @@ export function StudyCard({ flashcard, isFlipped, onFlip }: StudyCardProps) {
 
             {/* 笔记 */}
             {flashcard.notes && (
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground mb-1">笔记</p>
-                <p className="text-sm text-foreground bg-muted p-3 rounded-md">{flashcard.notes}</p>
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground mb-1">笔记</p>
+                <p className="text-xs text-foreground bg-muted p-2 rounded-md">{flashcard.notes}</p>
               </div>
             )}
           </div>
 
-          <div className="text-sm text-muted-foreground text-center mt-4">
+          <div className="text-xs text-muted-foreground text-center mt-2">
             根据记忆程度选择答题按钮
           </div>
         </div>

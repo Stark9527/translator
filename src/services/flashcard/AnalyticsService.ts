@@ -10,9 +10,11 @@ import { studySessionService } from './StudySessionService';
  */
 export interface LearningCurveData {
   date: string;
-  reviewed: number;
-  correct: number;
-  wrong: number;
+  newCards: number;
+  reviewedCards: number;
+  masteredCards: number;
+  correctCount: number;
+  wrongCount: number;
   accuracy: number;
 }
 
@@ -52,8 +54,13 @@ export class AnalyticsService {
     // 按熟练度分组统计
     const proficiencyCounts = await flashcardService.getCardCountByProficiency();
 
-    // 计算今日到期数量
+    // 计算今日到期数量，并区分新卡片和复习卡片
     const dueCards = await flashcardService.getDueCards();
+    const dueNewCards = dueCards.filter(card => card.proficiency === 'new' || card.totalReviews === 0);
+    const dueReviewCards = dueCards.filter(card => card.proficiency !== 'new' && card.totalReviews > 0);
+
+    const todayDueNew = dueNewCards.length;
+    const todayDueReview = dueReviewCards.length;
     const todayDue = dueCards.length;
 
     // 计算总复习次数和学习时长
@@ -71,9 +78,21 @@ export class AnalyticsService {
       : 0;
 
     // 今日正确率
-    const todayCorrectRate = todayStats && todayStats.reviewedCards > 0
-      ? Math.round((todayStats.correctCount / todayStats.reviewedCards) * 100)
+    const todayCorrectRate = todayStats && todayStats.totalAnswers > 0
+      ? Math.round((todayStats.correctCount / todayStats.totalAnswers) * 100)
       : 0;
+
+    // 今日新学数
+    const todayNewLearned = todayStats?.newCards || 0;
+
+    // 今日复习数
+    const todayReviewed = todayStats?.reviewedCards || 0;
+
+    // 今日精通数
+    const todayMastered = todayStats?.masteredCards || 0;
+
+    // 今日答题次数
+    const todayTotalAnswers = todayStats?.totalAnswers || 0;
 
     return {
       totalCards: flashcards.length,
@@ -82,8 +101,13 @@ export class AnalyticsService {
       reviewCards: proficiencyCounts.review,
       masteredCards: proficiencyCounts.mastered,
 
+      todayDueNew,
+      todayDueReview,
       todayDue,
-      todayReviewed: todayStats?.reviewedCards || 0,
+      todayNewLearned,
+      todayReviewed,
+      todayMastered,
+      todayTotalAnswers,
       todayCorrectRate,
 
       totalReviews,
@@ -125,19 +149,23 @@ export class AnalyticsService {
       if (stats) {
         curveData.push({
           date: dateStr,
-          reviewed: stats.reviewedCards,
-          correct: stats.correctCount,
-          wrong: stats.wrongCount,
-          accuracy: stats.reviewedCards > 0
-            ? Math.round((stats.correctCount / stats.reviewedCards) * 100)
+          newCards: stats.newCards,
+          reviewedCards: stats.reviewedCards,
+          masteredCards: stats.masteredCards || 0,
+          correctCount: stats.correctCount,
+          wrongCount: stats.wrongCount,
+          accuracy: stats.totalAnswers > 0
+            ? Math.round((stats.correctCount / stats.totalAnswers) * 100)
             : 0,
         });
       } else {
         curveData.push({
           date: dateStr,
-          reviewed: 0,
-          correct: 0,
-          wrong: 0,
+          newCards: 0,
+          reviewedCards: 0,
+          masteredCards: 0,
+          correctCount: 0,
+          wrongCount: 0,
           accuracy: 0,
         });
       }
@@ -188,9 +216,14 @@ export class AnalyticsService {
       mastered: flashcards.filter(c => c.proficiency === 'mastered').length,
     };
 
-    // 计算今日到期数量（该分组）
+    // 计算今日到期数量（该分组），并区分新卡片和复习卡片
     const now = new Date();
     const dueCards = flashcards.filter(c => new Date(c.nextReview) <= now);
+    const dueNewCards = dueCards.filter(card => card.proficiency === 'new' || card.totalReviews === 0);
+    const dueReviewCards = dueCards.filter(card => card.proficiency !== 'new' && card.totalReviews > 0);
+
+    const todayDueNew = dueNewCards.length;
+    const todayDueReview = dueReviewCards.length;
     const todayDue = dueCards.length;
 
     // 计算总复习次数
@@ -208,9 +241,21 @@ export class AnalyticsService {
       : 0;
 
     // 今日正确率（全局的，因为没有按分组的每日统计）
-    const todayCorrectRate = todayStats && todayStats.reviewedCards > 0
-      ? Math.round((todayStats.correctCount / todayStats.reviewedCards) * 100)
+    const todayCorrectRate = todayStats && todayStats.totalAnswers > 0
+      ? Math.round((todayStats.correctCount / todayStats.totalAnswers) * 100)
       : 0;
+
+    // 今日新学数
+    const todayNewLearned = todayStats?.newCards || 0;
+
+    // 今日复习数
+    const todayReviewed = todayStats?.reviewedCards || 0;
+
+    // 今日精通数
+    const todayMastered = todayStats?.masteredCards || 0;
+
+    // 今日答题次数
+    const todayTotalAnswers = todayStats?.totalAnswers || 0;
 
     return {
       totalCards: flashcards.length,
@@ -219,8 +264,13 @@ export class AnalyticsService {
       reviewCards: proficiencyCounts.review,
       masteredCards: proficiencyCounts.mastered,
 
+      todayDueNew,
+      todayDueReview,
       todayDue,
-      todayReviewed: todayStats?.reviewedCards || 0,
+      todayNewLearned,
+      todayReviewed,
+      todayMastered,
+      todayTotalAnswers,
       todayCorrectRate,
 
       totalReviews,

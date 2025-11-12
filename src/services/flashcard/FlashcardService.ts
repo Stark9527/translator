@@ -37,6 +37,39 @@ export class FlashcardService {
       }).join('\n');
     }
 
+    // 处理 meanings，只保留每个词性中置信度最高的翻译的第一个示例
+    let processedMeanings = translation.meanings;
+    if (translation.meanings && translation.meanings.length > 0) {
+      processedMeanings = translation.meanings.map(meaning => {
+        // 找到置信度最高的翻译
+        const highestConfidenceTranslation = meaning.translations.reduce((prev, current) => {
+          return (current.confidence > prev.confidence) ? current : prev;
+        });
+
+        // 处理 translations，只保留置信度最高的翻译的第一个示例
+        const processedTranslations = meaning.translations.map(trans => {
+          if (trans === highestConfidenceTranslation) {
+            // 只保留第一个示例
+            return {
+              ...trans,
+              examples: trans.examples ? trans.examples.slice(0, 1) : []
+            };
+          } else {
+            // 其他翻译清空示例
+            return {
+              ...trans,
+              examples: []
+            };
+          }
+        });
+
+        return {
+          ...meaning,
+          translations: processedTranslations
+        };
+      });
+    }
+
     const flashcard: Flashcard = {
       id: uuidv4(),
       word: translation.text,
@@ -47,7 +80,7 @@ export class FlashcardService {
 
       // 保存词典信息（多词性、多释义）
       phonetic: translation.phonetic,
-      meanings: translation.meanings,
+      meanings: processedMeanings,  // 使用处理后的 meanings
 
       sourceLanguage: translation.from,
       targetLanguage: translation.to,

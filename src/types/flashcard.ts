@@ -133,12 +133,19 @@ export interface StudySession {
  */
 export interface DailyStats {
   date: string;                  // 日期（YYYY-MM-DD）
-  newCards: number;              // 新学卡片数
-  reviewedCards: number;         // 复习卡片数
+  newCards: number;              // 新学卡片数（首次学习的新卡片数量）
+  reviewedCards: number;         // 复习卡片数（去重，不包含新学的）
+  masteredCards: number;         // 今日达到精通的卡片数
+  totalAnswers: number;          // 总答题次数（包含重复答题）
   correctCount: number;          // 答对次数
   wrongCount: number;            // 答错次数
   totalStudyTime: number;        // 学习时长（毫秒）
   averageResponseTime: number;   // 平均答题时间
+
+  // 辅助字段（用于去重统计）
+  studiedCardIds: string[];      // 今天学习过的所有卡片ID
+  newCardIds: string[];          // 今天新学的卡片ID
+  masteredCardIds: string[];     // 今天达到精通的卡片ID
 }
 
 /**
@@ -151,8 +158,13 @@ export interface OverallStats {
   reviewCards: number;           // 复习中卡片数
   masteredCards: number;         // 已精通卡片数
 
-  todayDue: number;              // 今日到期数
-  todayReviewed: number;         // 今日已复习数
+  todayDueNew: number;           // 今日待学习数（新卡片）
+  todayDueReview: number;        // 今日待复习数（复习卡片）
+  todayDue: number;              // 今日到期数（总计）
+  todayNewLearned: number;       // 今日新学数（新卡片首次学习数量）
+  todayReviewed: number;         // 今日复习数（去重，不包含新学的）
+  todayMastered: number;         // 今日精通数（今日达到精通的卡片数）
+  todayTotalAnswers: number;     // 今日答题次数（包含重复答题）
   todayCorrectRate: number;      // 今日正确率（0-100）
 
   totalReviews: number;          // 总复习次数

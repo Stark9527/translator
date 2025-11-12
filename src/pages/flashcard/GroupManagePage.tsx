@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function GroupManagePage() {
   const navigate = useNavigate();
@@ -151,19 +152,26 @@ export default function GroupManagePage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <TooltipProvider>
+      <div className="flex-1 flex flex-col overflow-hidden">
       {/* 头部 */}
       <div className="p-4 border-b border-border bg-background">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/flashcards')}
-              title="返回"
-            >
-              <Icon icon={ArrowLeft} size="sm" className="text-muted-foreground" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate('/flashcards')}
+                >
+                  <Icon icon={ArrowLeft} size="sm" className="text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>返回</p>
+              </TooltipContent>
+            </Tooltip>
             <h1 className="text-lg font-bold text-foreground">分组管理</h1>
           </div>
           <Button
@@ -214,25 +222,37 @@ export default function GroupManagePage() {
 
               {/* 操作按钮 */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEditModal(group)}
-                  title="编辑"
-                >
-                  <Icon icon={Edit2} size="xs" className="text-muted-foreground" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEditModal(group)}
+                    >
+                      <Icon icon={Edit2} size="xs" className="text-muted-foreground" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>编辑</p>
+                  </TooltipContent>
+                </Tooltip>
                 {group.id !== 'default' && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 hover:bg-destructive/10"
-                    onClick={() => handleDelete(group)}
-                    title="删除"
-                  >
-                    <Icon icon={Trash2} size="xs" className="text-destructive" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-destructive/10"
+                        onClick={() => handleDelete(group)}
+                      >
+                        <Icon icon={Trash2} size="xs" className="text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>删除</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -310,5 +330,6 @@ export default function GroupManagePage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

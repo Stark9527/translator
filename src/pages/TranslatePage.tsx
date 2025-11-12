@@ -338,16 +338,22 @@ export default function TranslatePage() {
             </SelectContent>
           </Select>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleSwapLanguages}
-            disabled={sourceLang === 'auto'}
-            title={sourceLang === 'auto' ? '自动检测时无法切换' : '切换语言'}
-          >
-            <Icon icon={ArrowLeftRight} size="sm" className="text-muted-foreground" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleSwapLanguages}
+                disabled={sourceLang === 'auto'}
+              >
+                <Icon icon={ArrowLeftRight} size="sm" className="text-muted-foreground" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{sourceLang === 'auto' ? '自动检测时无法切换' : '切换语言'}</p>
+            </TooltipContent>
+          </Tooltip>
 
           <Select value={targetLang} onValueChange={(value) => setTargetLang(value as LanguageCode)}>
             <SelectTrigger className="flex-1 h-8">
@@ -421,34 +427,25 @@ export default function TranslatePage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2"
-                          onClick={handleSaveToFlashcard}
-                          disabled={isSavingFlashcard || isCardExists}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: isCardExists ? 'not-allowed' : 'pointer',
-                            opacity: isCardExists ? 0.5 : 1,
-                          }}
-                        >
-                          <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground" />
-                          <span style={{ fontSize: '12px' }}>
-                            {isCardExists ? '已添加' : '添加到卡片'}
-                          </span>
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isCardExists ? '已添加到卡片' : (isSavingFlashcard ? '保存中...' : '添加到卡片')}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={handleSaveToFlashcard}
+                    disabled={isSavingFlashcard || isCardExists}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      cursor: isCardExists ? 'not-allowed' : 'pointer',
+                      opacity: isCardExists ? 0.5 : 1,
+                    }}
+                  >
+                    <Icon icon={BookmarkPlus} size="sm" className="text-muted-foreground" />
+                    <span style={{ fontSize: '12px' }}>
+                      {isCardExists ? '已添加' : '添加到卡片'}
+                    </span>
+                  </Button>
                 </div>
               )}
             </div>

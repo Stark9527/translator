@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const ratingButtons: Array<{ rating: Grade; label: string; shortcut: string; color: string }> = [
   { rating: Rating.Again as Grade, label: '重来', shortcut: '1', color: 'bg-red-500 hover:bg-red-600' },
@@ -36,6 +37,39 @@ export default function StudyPage() {
   const [groups, setGroups] = useState<FlashcardGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all');
   const [selectedGroupName, setSelectedGroupName] = useState<string>('全部分组');
+  const [newCardsCount, setNewCardsCount] = useState<number>(0);
+  const [reviewCardsCount, setReviewCardsCount] = useState<number>(0);
+  const [isCheckingCards, setIsCheckingCards] = useState(false);
+
+  // 检查可学习的卡片数量
+  const checkAvailableCards = useCallback(async (groupId: string) => {
+    setIsCheckingCards(true);
+    try {
+      let dueCards: Flashcard[] = [];
+
+      if (groupId === 'all') {
+        // 获取所有到期卡片
+        dueCards = await flashcardService.getDueCards();
+      } else {
+        // 获取特定分组的到期卡片
+        const allDueCards = await flashcardService.getDueCards();
+        dueCards = allDueCards.filter(card => card.groupId === groupId);
+      }
+
+      // 统计新卡片和复习卡片数量
+      const newCards = dueCards.filter(card => card.proficiency === 'new' || card.totalReviews === 0);
+      const reviewCards = dueCards.filter(card => card.proficiency !== 'new' && card.totalReviews > 0);
+
+      setNewCardsCount(newCards.length);
+      setReviewCardsCount(reviewCards.length);
+    } catch (error) {
+      console.error('Failed to check available cards:', error);
+      setNewCardsCount(0);
+      setReviewCardsCount(0);
+    } finally {
+      setIsCheckingCards(false);
+    }
+  }, []);
 
   // 加载分组列表
   useEffect(() => {
@@ -43,12 +77,14 @@ export default function StudyPage() {
       try {
         const allGroups = await flashcardService.getAllGroups();
         setGroups(allGroups);
+        // 初始加载时检查可学习的卡片数量
+        await checkAvailableCards('all');
       } catch (error) {
         console.error('Failed to load groups:', error);
       }
     };
     loadGroups();
-  }, []);
+  }, [checkAvailableCards]);
 
   // 加载当前卡片
   const loadCurrentCard = useCallback(() => {
@@ -114,6 +150,8 @@ export default function StudyPage() {
           // 会话已完成
           setIsSessionActive(false);
           setCurrentCard(null);
+          // 重新检查可学习的卡片数量
+          checkAvailableCards(selectedGroupId);
           alert(
             `学习完成！\n✓ 答对：${currentStats?.correct || 0}\n✗ 答错：${currentStats?.wrong || 0}`
           );
@@ -127,7 +165,7 @@ export default function StudyPage() {
         alert('提交答案失败');
       }
     },
-    [currentCard, isFlipped, startTime, loadCurrentCard]
+    [currentCard, isFlipped, startTime, loadCurrentCard, checkAvailableCards, selectedGroupId]
   );
 
   // 翻转卡片
@@ -173,7 +211,7 @@ export default function StudyPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSessionActive, currentCard, isFlipped, handleFlip, startTime]);
+  }, [isSessionActive, currentCard, isFlipped, handleFlip, submitAnswer]);
 
   // 显示退出确认对话框
   const handleCancelSession = () => {
@@ -186,17 +224,16 @@ export default function StudyPage() {
     setIsSessionActive(false);
     setCurrentCard(null);
     setShowExitDialog(false);
+    // 重新检查可学习的卡片数量
+    checkAvailableCards(selectedGroupId);
   };
 
   // 未开始状态
   if (!isSessionActive) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
         <Icon icon={GraduationCap} size="xl" className="text-primary mb-4" />
         <h2 className="text-2xl font-bold text-foreground mb-2">开始学习</h2>
-        <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-          使用 FSRS 算法智能安排复习，帮助你高效记忆单词
-        </p>
 
         {/* 分组选择器 */}
         <div className="mb-4 w-full max-w-xs">
@@ -214,22 +251,63 @@ export default function StudyPage() {
                 const group = groups.find(g => g.id === groupId);
                 setSelectedGroupName(group?.name || '');
               }
+              // 更新可学习的卡片数量
+              checkAvailableCards(groupId);
             }}
             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">全部分组</option>
             {groups.map(group => (
               <option key={group.id} value={group.id}>
-                {group.name} ({group.cardCount} 张)
+                {group.name}
               </option>
             ))}
           </select>
         </div>
 
+        {/* 可学习卡片数量提示 */}
+        {isCheckingCards ? (
+          <div className="mb-4 p-4 bg-muted rounded-lg max-w-md">
+            <p className="text-sm text-muted-foreground text-center">
+              正在检查可学习的卡片...
+            </p>
+          </div>
+        ) : newCardsCount + reviewCardsCount > 0 ? (
+          <div className="mb-4 p-4 bg-muted rounded-lg max-w-md">
+            <p className="text-sm text-muted-foreground text-center">
+              {newCardsCount > 0 && reviewCardsCount > 0 && (
+                <>
+                  有 <span className="font-semibold text-green-600">{newCardsCount}</span> 张新卡片，
+                  <span className="font-semibold text-orange-600">{reviewCardsCount}</span> 张卡片需要复习
+                </>
+              )}
+              {newCardsCount > 0 && reviewCardsCount === 0 && (
+                <>
+                  有 <span className="font-semibold text-green-600">{newCardsCount}</span> 张新卡片待学习
+                </>
+              )}
+              {newCardsCount === 0 && reviewCardsCount > 0 && (
+                <>
+                  有 <span className="font-semibold text-orange-600">{reviewCardsCount}</span> 张卡片需要复习
+                </>
+              )}
+            </p>
+          </div>
+        ) : (
+          <div className="mb-4 p-4 bg-muted rounded-lg max-w-md">
+            <p className="text-sm text-muted-foreground text-center">
+              暂时没有需要学习、复习的卡片 📚
+            </p>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              所有卡片都已完成，明天再来吧！
+            </p>
+          </div>
+        )}
+
         <button
           onClick={startSession}
-          disabled={isLoading}
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+          disabled={isLoading || isCheckingCards || (newCardsCount + reviewCardsCount === 0)}
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Icon icon={Play} size="sm" />
           <span>{isLoading ? '加载中...' : '开始学习'}</span>
@@ -264,7 +342,8 @@ export default function StudyPage() {
   const progressPercentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <TooltipProvider>
+      <div className="flex-1 flex flex-col overflow-hidden">
       {/* 头部：进度和统计 */}
       <div className="p-4 border-b border-border bg-background">
         <div className="flex items-center justify-between">
@@ -290,26 +369,38 @@ export default function StudyPage() {
           {/* 操作按钮 */}
           <div className="flex items-center gap-2">
             {isFlipped && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setIsFlipped(false);
-                  loadCurrentCard();
-                }}
-                title="重新开始当前卡片"
-              >
-                <Icon icon={RotateCcw} size="sm" className="text-muted-foreground" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setIsFlipped(false);
+                      loadCurrentCard();
+                    }}
+                  >
+                    <Icon icon={RotateCcw} size="sm" className="text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>重新开始当前卡片</p>
+                </TooltipContent>
+              </Tooltip>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleCancelSession}
-              title="退出学习"
-            >
-              <Icon icon={X} size="sm" className="text-destructive" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCancelSession}
+                >
+                  <Icon icon={X} size="sm" className="text-destructive" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>退出学习</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -380,5 +471,6 @@ export default function StudyPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

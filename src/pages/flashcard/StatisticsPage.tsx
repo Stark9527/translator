@@ -24,8 +24,20 @@ const PROFICIENCY_LABELS = {
 export default function StatisticsPage() {
   // 全局统计
   const [stats, setStats] = useState<OverallStats | null>(null);
-  const [proficiencyData, setProficiencyData] = useState<any[]>([]);
-  const [learningCurve, setLearningCurve] = useState<any[]>([]);
+  const [proficiencyData, setProficiencyData] = useState<Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>>([]);
+  const [learningCurve, setLearningCurve] = useState<Array<{
+    date: string;
+    newCards: number;
+    reviewedCards: number;
+    masteredCards: number;
+    correctCount: number;
+    wrongCount: number;
+    accuracy: number;
+  }>>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [groupStats, setGroupStats] = useState<Array<{
@@ -114,15 +126,22 @@ export default function StatisticsPage() {
           </div>
         </div>
 
-        {/* 今日待复习 */}
+        {/* 今日待学习/待复习 */}
         <div className="p-4 bg-card border border-border rounded-lg">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
               <Icon icon={Target} size="sm" className="text-blue-600 dark:text-blue-400" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.todayDue}</p>
-              <p className="text-xs text-muted-foreground">今日待复习</p>
+            <p className="text-xs text-muted-foreground font-medium">今日任务</p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">待学习</span>
+              <span className="text-lg font-bold text-green-600">{stats.todayDueNew}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">待复习</span>
+              <span className="text-lg font-bold text-orange-600">{stats.todayDueReview}</span>
             </div>
           </div>
         </div>
@@ -140,15 +159,19 @@ export default function StatisticsPage() {
           </div>
         </div>
 
-        {/* 今日正确率 */}
+        {/* 今日学习统计 */}
         <div className="p-4 bg-card border border-border rounded-lg">
-          <div className="flex items-center gap-3">
-            <ProgressRing percentage={stats.todayCorrectRate} size={48} />
+          <div className="flex items-center gap-3 mb-3">
+            <ProgressRing percentage={stats.todayCorrectRate} size={40} />
             <div>
               <p className="text-xs text-muted-foreground">今日正确率</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {stats.todayReviewed} 张已复习
-              </p>
+              <p className="text-lg font-bold text-foreground">{stats.todayCorrectRate}%</p>
+            </div>
+          </div>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span>已答题</span>
+              <span className="font-medium text-foreground">{stats.todayTotalAnswers} 次</span>
             </div>
           </div>
         </div>
@@ -180,20 +203,34 @@ export default function StatisticsPage() {
                   borderRadius: '6px',
                   fontSize: '12px',
                 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="reviewedCards"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                name="复习数"
+                formatter={(value: number, name: string) => {
+                  return [`${value} 张`, name];
+                }}
+                labelFormatter={(label) => {
+                  const date = new Date(label);
+                  return `${date.getMonth() + 1}月${date.getDate()}日`;
+                }}
               />
               <Line
                 type="monotone"
                 dataKey="newCards"
                 stroke="#22c55e"
                 strokeWidth={2}
-                name="新学数"
+                name="新学"
+              />
+              <Line
+                type="monotone"
+                dataKey="reviewedCards"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                name="复习"
+              />
+              <Line
+                type="monotone"
+                dataKey="masteredCards"
+                stroke="#a855f7"
+                strokeWidth={2}
+                name="精通"
               />
             </LineChart>
           </ResponsiveContainer>

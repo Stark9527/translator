@@ -205,11 +205,22 @@ export class MicrosoftDictionaryService {
     const results = await Promise.allSettled(examplesPromises);
 
     // 构建结果映射（normalizedTarget -> Examples）
+    // 只保留每个翻译的第一个示例，减少数据量
     const examplesMap = new Map<string, MSDictionaryExamplesResponse>();
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         const normalizedTarget = topTranslations[index].normalizedTarget;
-        examplesMap.set(normalizedTarget, result.value);
+        const examplesResponse = result.value;
+
+        // 只保留第一个示例
+        if (examplesResponse.examples.length > 0) {
+          examplesMap.set(normalizedTarget, {
+            ...examplesResponse,
+            examples: [examplesResponse.examples[0]]
+          });
+        } else {
+          examplesMap.set(normalizedTarget, examplesResponse);
+        }
       }
     });
 

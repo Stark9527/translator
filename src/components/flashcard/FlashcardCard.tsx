@@ -86,6 +86,9 @@ export function FlashcardCard({
 
   const createdAtText = getCreatedAtText();
 
+  // 判断是否是新卡片
+  const isNewCard = flashcard.proficiency === 'new' || flashcard.totalReviews === 0;
+
   // 判断是否逾期
   const isOverdue = new Date(flashcard.nextReview) < new Date();
 
@@ -190,7 +193,7 @@ export function FlashcardCard({
                   isOverdue ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-muted-foreground'
                 )}
               >
-                {isOverdue ? '待复习' : nextReviewText}
+                {isOverdue ? (isNewCard ? '待学习' : '待复习') : nextReviewText}
               </span>
 
               {/* 创建时间 */}

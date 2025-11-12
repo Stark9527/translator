@@ -3,6 +3,7 @@ import type { TranslateResult, UserConfig } from '@/types';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Volume2, BookmarkPlus } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function SelectionPopup() {
   const [showIcon, setShowIcon] = useState(false); // 控制 icon 是否显示
@@ -346,11 +347,11 @@ export default function SelectionPopup() {
     return { top: adjustedTop, left: adjustedLeft };
   };
 
-  // 如果 icon 和 popup 都不显示，则不渲染任何内容
+  // 如果 icon 和 popup 都不显示,则不渲染任何内容
   if (!showIcon && !showPopup) return null;
 
   return (
-    <>
+    <TooltipProvider>
       {/* 悬浮 Icon - 只在 showIcon 为 true 时显示 */}
       {showIcon && (
         <div
@@ -498,19 +499,25 @@ export default function SelectionPopup() {
               </div>
             )}
             {/* 朗读原文按钮 */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleSpeak(selectedText, translationResult?.from || config?.defaultSourceLang)}
-              style={{
-                height: '24px',
-                padding: '0 4px',
-                minWidth: '24px',
-              }}
-              title="朗读原文"
-            >
-              <Icon icon={Volume2} size="xs" style={{verticalAlign: '-2px'}} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleSpeak(selectedText, translationResult?.from || config?.defaultSourceLang)}
+                  style={{
+                    height: '24px',
+                    padding: '0 4px',
+                    minWidth: '24px',
+                  }}
+                >
+                  <Icon icon={Volume2} size="xs" style={{verticalAlign: '-2px'}} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>朗读原文</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* 分隔线 */}
@@ -664,6 +671,6 @@ export default function SelectionPopup() {
           </div>
         </div>
       )}
-    </>
+    </TooltipProvider>
   );
 }

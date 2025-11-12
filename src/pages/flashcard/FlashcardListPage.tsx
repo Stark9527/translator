@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, SortAsc, Library, Settings, CheckSquare, X, Trash2, FolderInput } from 'lucide-react';
+import { Search, SortAsc, Library, Settings, CheckSquare, X, Trash2, FolderInput, Download, Upload } from 'lucide-react';
 import type { Flashcard, FlashcardGroup } from '@/types/flashcard';
 import { ProficiencyLevel } from '@/types/flashcard';
 import { flashcardService } from '@/services/flashcard';
+import { importExportService } from '@/services/flashcard/ImportExportService';
+import type { ExportFormat } from '@/services/flashcard/ImportExportService';
 import { FlashcardCard } from '@/components/flashcard/FlashcardCard';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/utils/cn';
@@ -25,6 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const proficiencyOptions: { value: ProficiencyLevel | 'all'; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -63,6 +71,11 @@ export default function FlashcardListPage() {
   const [moveModal, setMoveModal] = useState<{ show: boolean; cardId: string; cardWord: string; currentGroupId: string } | null>(null);
   const [batchDeleteModal, setBatchDeleteModal] = useState(false); // 批量删除确认模态框
   const [batchMoveModal, setBatchMoveModal] = useState(false); // 批量移动确认模态框
+  const [importExportModal, setImportExportModal] = useState<{ show: boolean; mode: 'import' | 'export' } | null>(null);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 当从其他页面返回时重新加载数据
   useEffect(() => {
@@ -297,6 +310,79 @@ export default function FlashcardListPage() {
     }
   };
 
+  // ==================== 导入导出功能 ====================
+
+  const handleExport = () => {
+    setImportExportModal({ show: true, mode: 'export' });
+  };
+
+  const handleImport = () => {
+    setImportExportModal({ show: true, mode: 'import' });
+  };
+
+  const confirmExport = async () => {
+    setIsProcessing(true);
+    setProcessingMessage('正在导出...');
+    try {
+      await importExportService.export({
+        format: exportFormat,
+        includeStats: true,
+      });
+      setImportExportModal(null);
+      alert(`成功导出为 ${exportFormat.toUpperCase()} 格式`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('导出失败: ' + (error as Error).message);
+    } finally {
+      setIsProcessing(false);
+      setProcessingMessage('');
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    setProcessingMessage('正在导入...');
+    try {
+      const result = await importExportService.import(file);
+
+      // 重新加载数据
+      await loadFlashcards();
+      await loadGroups();
+
+      setImportExportModal(null);
+
+      // 显示导入结果
+      let message = `成功导入 ${result.flashcards} 张卡片`;
+      if (result.groups > 0) {
+        message += ` 和 ${result.groups} 个分组`;
+      }
+      if (result.errors && result.errors.length > 0) {
+        message += `\n\n部分导入失败:\n${result.errors.slice(0, 5).join('\n')}`;
+        if (result.errors.length > 5) {
+          message += `\n...还有 ${result.errors.length - 5} 个错误`;
+        }
+      }
+      alert(message);
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('导入失败: ' + (error as Error).message);
+    } finally {
+      setIsProcessing(false);
+      setProcessingMessage('');
+      // 重置文件输入
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -309,20 +395,22 @@ export default function FlashcardListPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <TooltipProvider>
+      <div className="flex-1 flex flex-col overflow-hidden">
       {/* 头部 */}
       <div className="px-4 py-2 border-b border-border bg-background">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold text-foreground">卡片</h1>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate('/flashcards/groups')}
-            title="管理分组"
-          >
-            <Icon icon={Settings} size="xs" />
-            <span className="ml-1">分组</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate('/flashcards/groups')}
+            >
+              <Icon icon={Settings} size="xs" />
+              <span className="ml-1">分组</span>
+            </Button>
+          </div>
         </div>
 
         {/* 搜索框 */}
@@ -457,21 +545,60 @@ export default function FlashcardListPage() {
                   </Button>
                 </>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 px-1"
-                  onClick={toggleBatchMode}
-                  title="批量操作"
-                >
-                  <Icon icon={CheckSquare} size="sm" className="text-muted-foreground" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 px-1"
+                      onClick={toggleBatchMode}
+                    >
+                      <Icon icon={CheckSquare} size="sm" className="text-muted-foreground" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>批量操作</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
 
-            {/* 统计 */}
-            <div className="text-muted-foreground whitespace-nowrap">
-              {filteredCards.length} / {flashcards.length} 张
+            {/* 导入导出按钮和统计 */}
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleImport}
+                  >
+                    <Icon icon={Upload} size="xs" className="text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>导入卡片数据（支持 JSON 和 CSV 格式）</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleExport}
+                  >
+                    <Icon icon={Download} size="xs" className="text-muted-foreground" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>导出卡片数据（可选 JSON 或 Anki CSV 格式）</p>
+                </TooltipContent>
+              </Tooltip>
+              {/* 统计 */}
+              <div className="text-muted-foreground whitespace-nowrap">
+                {filteredCards.length} / {flashcards.length} 张
+              </div>
             </div>
           </div>
         </div>
@@ -622,6 +749,78 @@ export default function FlashcardListPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 导入导出对话框 */}
+      <Dialog open={importExportModal?.show} onOpenChange={(open) => !open && setImportExportModal(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>{importExportModal?.mode === 'export' ? '导出数据' : '导入数据'}</DialogTitle>
+            <DialogDescription>
+              {importExportModal?.mode === 'export'
+                ? '选择导出格式并下载数据文件'
+                : '选择要导入的数据文件（支持 JSON 和 CSV 格式）'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {importExportModal?.mode === 'export' ? (
+            <>
+              <div className="space-y-3 py-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">导出格式</label>
+                  <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as ExportFormat)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="json">JSON（完整数据）</SelectItem>
+                      <SelectItem value="anki">Anki CSV（卡片数据）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {exportFormat === 'json'
+                    ? '导出所有卡片、分组和学习数据，适合完整备份'
+                    : '导出为 Anki 兼容的 CSV 格式，可导入到 Anki'}
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setImportExportModal(null)} disabled={isProcessing}>
+                  取消
+                </Button>
+                <Button onClick={confirmExport} disabled={isProcessing}>
+                  {isProcessing ? processingMessage : '导出'}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3 py-4">
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>• JSON 格式：完整的卡片和分组数据</p>
+                  <p>• CSV 格式：Anki 导出的卡片数据</p>
+                  <p>• 已存在的卡片将被跳过</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,.csv"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setImportExportModal(null)} disabled={isProcessing}>
+                  取消
+                </Button>
+                <Button onClick={triggerFileInput} disabled={isProcessing}>
+                  {isProcessing ? processingMessage : '选择文件'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

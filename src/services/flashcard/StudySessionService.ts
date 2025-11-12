@@ -126,6 +126,9 @@ export class StudySessionService {
       throw new Error('No current card');
     }
 
+    // 判断是否是新卡片（在答题前判断）
+    const isNewCard = currentCard.totalReviews === 0;
+
     // 使用 FSRS 算法更新卡片状态
     const { card: updatedFsrsCard, log } = fsrsService.review(currentCard.fsrsCard, rating);
 
@@ -179,7 +182,13 @@ export class StudySessionService {
     }
 
     // 更新每日统计
-    await this.updateDailyStats(isCorrect, responseTime);
+    await this.updateDailyStats(
+      currentCard.id,
+      isCorrect,
+      responseTime,
+      isNewCard,
+      updatedCard.proficiency
+    );
   }
 
   /**
@@ -309,7 +318,13 @@ export class StudySessionService {
   /**
    * 更新每日统计
    */
-  private async updateDailyStats(isCorrect: boolean, responseTime: number): Promise<void> {
+  private async updateDailyStats(
+    cardId: string,
+    isCorrect: boolean,
+    responseTime: number,
+    isNewCard: boolean,
+    newProficiency: string
+  ): Promise<void> {
     const today = format(new Date(), 'yyyy-MM-dd');
     let stats = await flashcardDB.getDailyStats(today);
 
@@ -318,25 +333,51 @@ export class StudySessionService {
         date: today,
         newCards: 0,
         reviewedCards: 0,
+        masteredCards: 0,
+        totalAnswers: 0,
         correctCount: 0,
         wrongCount: 0,
         totalStudyTime: 0,
         averageResponseTime: 0,
+        studiedCardIds: [],
+        newCardIds: [],
+        masteredCardIds: [],
       };
     }
 
-    // 更新统计
-    stats.reviewedCards++;
+    // 每次答题，总答题次数 +1
+    stats.totalAnswers++;
+
+    // 统计正确/错误次数
     if (isCorrect) {
       stats.correctCount++;
     } else {
       stats.wrongCount++;
     }
 
+    // 更新学习时长
     stats.totalStudyTime += responseTime;
+    stats.averageResponseTime = stats.totalStudyTime / stats.totalAnswers;
 
-    // 重新计算平均答题时间
-    stats.averageResponseTime = stats.totalStudyTime / stats.reviewedCards;
+    // 如果是第一次学习这张卡片（今天）
+    if (!stats.studiedCardIds.includes(cardId)) {
+      stats.studiedCardIds.push(cardId);
+
+      if (isNewCard) {
+        // 新学卡片
+        stats.newCards++;
+        stats.newCardIds.push(cardId);
+      } else {
+        // 复习卡片
+        stats.reviewedCards++;
+      }
+    }
+
+    // 如果卡片达到精通状态，且今天还没统计过
+    if (newProficiency === 'mastered' && !stats.masteredCardIds.includes(cardId)) {
+      stats.masteredCards++;
+      stats.masteredCardIds.push(cardId);
+    }
 
     await flashcardDB.saveDailyStats(stats);
   }
@@ -388,7 +429,7 @@ export class StudySessionService {
       const dateStr = format(checkDate, 'yyyy-MM-dd');
       const stats = recentStats.find(s => s.date === dateStr);
 
-      if (stats && stats.reviewedCards > 0) {
+      if (stats && (stats.newCards > 0 || stats.reviewedCards > 0)) {
         currentStreak++;
       } else {
         break;
@@ -405,7 +446,7 @@ export class StudySessionService {
       const dateStr = format(checkDate, 'yyyy-MM-dd');
       const stats = recentStats.find(s => s.date === dateStr);
 
-      if (stats && stats.reviewedCards > 0) {
+      if (stats && (stats.newCards > 0 || stats.reviewedCards > 0)) {
         tempStreak++;
         longestStreak = Math.max(longestStreak, tempStreak);
       } else {
