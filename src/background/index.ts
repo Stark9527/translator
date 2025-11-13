@@ -4,8 +4,12 @@ import type { UserConfig } from '@/types';
 import { TranslationManager } from '@/services/translation/TranslationManager';
 import { ConfigService, ConfigValidationError, StorageQuotaError } from '@/services/config/ConfigService';
 import { flashcardService } from '@/services/flashcard';
+import { supabaseService, syncService } from '@/services/sync';
 
 console.info('Background service worker started');
+
+// 初始化 Supabase
+supabaseService.initialize();
 
 // 监听扩展安装事件
 chrome.runtime.onInstalled.addListener(async details => {
@@ -171,6 +175,51 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
       });
       console.info('✅ 划词内容已保存到 session storage');
       return { success: true };
+    }
+
+    // ==================== Supabase 同步 ====================
+
+    case 'SUPABASE_SIGN_IN': {
+      // 登录
+      const { email, password } = payload as { email: string; password: string };
+      const user = await supabaseService.signInWithPassword(email, password);
+      return { user };
+    }
+
+    case 'SUPABASE_SIGN_UP': {
+      // 注册
+      const { email, password } = payload as { email: string; password: string };
+      const user = await supabaseService.signUp(email, password);
+      return { user };
+    }
+
+    case 'SUPABASE_SIGN_OUT': {
+      // 登出
+      await supabaseService.signOut();
+      return { success: true };
+    }
+
+    case 'SUPABASE_GET_USER': {
+      // 获取当前用户
+      const user = supabaseService.getCurrentUser();
+      return { user };
+    }
+
+    case 'SYNC_NOW': {
+      // 立即同步
+      console.info('开始云同步...');
+      const result = await syncService.sync();
+      console.info('同步完成:', result);
+      return result;
+    }
+
+    case 'GET_SYNC_STATUS': {
+      // 获取同步状态
+      return {
+        isSyncing: syncService.getIsSyncing(),
+        lastSyncTime: syncService.getLastSyncTime(),
+        isAuthenticated: supabaseService.isAuthenticated(),
+      };
     }
 
     default:

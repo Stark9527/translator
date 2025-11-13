@@ -101,6 +101,48 @@ export interface SaveSelectionMessage extends BaseMessage {
   };
 }
 
+// Supabase 登录消息
+export interface SupabaseSignInMessage extends BaseMessage {
+  type: 'SUPABASE_SIGN_IN';
+  payload: {
+    email: string;
+    password: string;
+  };
+}
+
+// Supabase 注册消息
+export interface SupabaseSignUpMessage extends BaseMessage {
+  type: 'SUPABASE_SIGN_UP';
+  payload: {
+    email: string;
+    password: string;
+  };
+}
+
+// Supabase 登出消息
+export interface SupabaseSignOutMessage extends BaseMessage {
+  type: 'SUPABASE_SIGN_OUT';
+  payload: null;
+}
+
+// Supabase 获取当前用户消息
+export interface SupabaseGetUserMessage extends BaseMessage {
+  type: 'SUPABASE_GET_USER';
+  payload: null;
+}
+
+// 立即同步消息
+export interface SyncNowMessage extends BaseMessage {
+  type: 'SYNC_NOW';
+  payload: null;
+}
+
+// 获取同步状态消息
+export interface GetSyncStatusMessage extends BaseMessage {
+  type: 'GET_SYNC_STATUS';
+  payload: null;
+}
+
 // 存储配额信息
 export interface StorageQuotaInfo {
   used: number;
@@ -123,7 +165,13 @@ export type Message =
   | GetFlashcardsMessage
   | GetFlashcardGroupsMessage
   | CheckFlashcardExistsMessage
-  | SaveSelectionMessage;
+  | SaveSelectionMessage
+  | SupabaseSignInMessage
+  | SupabaseSignUpMessage
+  | SupabaseSignOutMessage
+  | SupabaseGetUserMessage
+  | SyncNowMessage
+  | GetSyncStatusMessage;
 
 // 消息响应类型映射
 export type MessageResponse<T extends Message> = T extends TranslateMessage

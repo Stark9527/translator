@@ -141,11 +141,54 @@ export class FlashcardDB {
    * 确保数据库已初始化
    */
   private async ensureInitialized(): Promise<void> {
+    // 如果正在初始化，等待完成
     if (this.initPromise) {
       await this.initPromise;
     }
+
+    // 如果数据库不存在或连接已关闭，重新初始化
+    if (!this.db || this.db.name === '' || !this.db.objectStoreNames.length) {
+      console.warn('数据库连接无效，正在重新初始化...');
+      this.db = null;
+      this.initPromise = this.init();
+      await this.initPromise;
+    }
+
     if (!this.db) {
       throw new Error('FlashcardDB is not initialized');
+    }
+  }
+
+  /**
+   * 包装数据库操作，自动处理连接错误并重试
+   */
+  private async executeWithRetry<T>(
+    operation: () => Promise<T>,
+    retryCount = 1
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      const errorMessage = (error as Error).message || '';
+
+      // 检查是否是数据库连接关闭错误
+      if (
+        errorMessage.includes('connection is closing') ||
+        errorMessage.includes('connection was closed') ||
+        errorMessage.includes('database connection')
+      ) {
+        if (retryCount > 0) {
+          console.warn('数据库连接错误，正在重新初始化并重试...', errorMessage);
+          // 重置数据库连接
+          this.db = null;
+          await this.ensureInitialized();
+          // 重试操作
+          return this.executeWithRetry(operation, retryCount - 1);
+        }
+      }
+
+      // 其他错误或重试次数用尽，直接抛出
+      throw error;
     }
   }
 
@@ -155,15 +198,17 @@ export class FlashcardDB {
    * 添加 Flashcard
    */
   async addFlashcard(flashcard: Flashcard): Promise<void> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.flashcards], 'readwrite');
-      const store = transaction.objectStore(this.STORES.flashcards);
-      const request = store.add(flashcard);
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.flashcards], 'readwrite');
+        const store = transaction.objectStore(this.STORES.flashcards);
+        const request = store.add(flashcard);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -171,15 +216,17 @@ export class FlashcardDB {
    * 获取单个 Flashcard
    */
   async getFlashcard(id: string): Promise<Flashcard | null> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.flashcards], 'readonly');
-      const store = transaction.objectStore(this.STORES.flashcards);
-      const request = store.get(id);
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.flashcards], 'readonly');
+        const store = transaction.objectStore(this.STORES.flashcards);
+        const request = store.get(id);
 
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -187,15 +234,17 @@ export class FlashcardDB {
    * 更新 Flashcard
    */
   async updateFlashcard(flashcard: Flashcard): Promise<void> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.flashcards], 'readwrite');
-      const store = transaction.objectStore(this.STORES.flashcards);
-      const request = store.put(flashcard);
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.flashcards], 'readwrite');
+        const store = transaction.objectStore(this.STORES.flashcards);
+        const request = store.put(flashcard);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -275,15 +324,17 @@ export class FlashcardDB {
    * 获取所有 Flashcards
    */
   async getAllFlashcards(): Promise<Flashcard[]> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.flashcards], 'readonly');
-      const store = transaction.objectStore(this.STORES.flashcards);
-      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.flashcards], 'readonly');
+        const store = transaction.objectStore(this.STORES.flashcards);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -401,15 +452,17 @@ export class FlashcardDB {
    * 添加分组
    */
   async addGroup(group: FlashcardGroup): Promise<void> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.groups], 'readwrite');
-      const store = transaction.objectStore(this.STORES.groups);
-      const request = store.add(group);
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.groups], 'readwrite');
+        const store = transaction.objectStore(this.STORES.groups);
+        const request = store.add(group);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -417,15 +470,17 @@ export class FlashcardDB {
    * 获取单个分组
    */
   async getGroup(id: string): Promise<FlashcardGroup | null> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.groups], 'readonly');
-      const store = transaction.objectStore(this.STORES.groups);
-      const request = store.get(id);
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.groups], 'readonly');
+        const store = transaction.objectStore(this.STORES.groups);
+        const request = store.get(id);
 
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -433,15 +488,17 @@ export class FlashcardDB {
    * 更新分组
    */
   async updateGroup(group: FlashcardGroup): Promise<void> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.groups], 'readwrite');
-      const store = transaction.objectStore(this.STORES.groups);
-      const request = store.put(group);
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.groups], 'readwrite');
+        const store = transaction.objectStore(this.STORES.groups);
+        const request = store.put(group);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
@@ -465,15 +522,17 @@ export class FlashcardDB {
    * 获取所有分组
    */
   async getAllGroups(): Promise<FlashcardGroup[]> {
-    await this.ensureInitialized();
+    return this.executeWithRetry(async () => {
+      await this.ensureInitialized();
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORES.groups], 'readonly');
-      const store = transaction.objectStore(this.STORES.groups);
-      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction([this.STORES.groups], 'readonly');
+        const store = transaction.objectStore(this.STORES.groups);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 

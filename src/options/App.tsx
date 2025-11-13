@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -16,8 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Cloud, CloudOff, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function App() {
+  const navigate = useNavigate();
   const [config, setConfig] = useState<UserConfig>({
     engine: 'google',
     defaultSourceLang: 'auto',
@@ -39,16 +41,12 @@ export default function App() {
     message: string;
   } | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
-  const [quotaInfo, setQuotaInfo] = useState<{
-    used: number;
-    total: number;
-    percentage: number;
-  } | null>(null);
-  const [advancedMessage, setAdvancedMessage] = useState<{
-    type: 'success' | 'error' | 'info';
-    message: string;
-  } | null>(null);
   const [flashcardGroups, setFlashcardGroups] = useState<FlashcardGroup[]>([]);
+
+  // 云同步状态（仅用于显示）
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number>(0);
 
   // 检查是否是欢迎页面
   const isWelcome = new URLSearchParams(window.location.search).get('welcome') === 'true';
@@ -56,10 +54,14 @@ export default function App() {
   useEffect(() => {
     // 加载保存的配置
     loadConfig();
-    // 加载存储配额信息
-    loadQuotaInfo();
     // 加载 Flashcard 分组
     loadFlashcardGroups();
+    // 加载云同步状态
+    loadSyncStatus();
+
+    // 每 5 秒刷新同步状态
+    const interval = setInterval(loadSyncStatus, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadConfig = async () => {
@@ -70,17 +72,6 @@ export default function App() {
       }
     } catch (error) {
       console.error('Failed to load config:', error);
-    }
-  };
-
-  const loadQuotaInfo = async () => {
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'GET_STORAGE_QUOTA' });
-      if (response.success && response.data) {
-        setQuotaInfo(response.data);
-      }
-    } catch (error) {
-      console.error('Failed to load quota info:', error);
     }
   };
 
@@ -182,143 +173,112 @@ export default function App() {
     setTestResult(null); // 清除测试结果
   };
 
-  const handleExportConfig = async () => {
+  // ==================== 云同步相关函数 ====================
+
+  const loadSyncStatus = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ type: 'EXPORT_CONFIG' });
+      const response = await chrome.runtime.sendMessage({ type: 'GET_SYNC_STATUS', payload: null });
       if (response.success && response.data) {
-        // 创建下载链接
-        const blob = new Blob([response.data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `translator-config-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        setAdvancedMessage({ type: 'success', message: '配置已导出' });
-        setTimeout(() => setAdvancedMessage(null), 3000);
+        setIsAuthenticated(response.data.isAuthenticated);
+        setIsSyncing(response.data.isSyncing);
+        setLastSyncTime(response.data.lastSyncTime);
       }
     } catch (error) {
-      console.error('Failed to export config:', error);
-      setAdvancedMessage({ type: 'error', message: '导出失败' });
-      setTimeout(() => setAdvancedMessage(null), 3000);
+      console.error('Failed to load sync status:', error);
     }
-  };
-
-  const handleImportConfig = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const response = await chrome.runtime.sendMessage({
-        type: 'IMPORT_CONFIG',
-        payload: { configJson: text },
-      });
-
-      if (response.success) {
-        setAdvancedMessage({ type: 'success', message: '配置已导入' });
-        setTimeout(() => setAdvancedMessage(null), 3000);
-        // 重新加载配置
-        await loadConfig();
-        await loadQuotaInfo();
-        await loadFlashcardGroups();
-      } else {
-        setAdvancedMessage({ type: 'error', message: `导入失败：${response.error || '未知错误'}` });
-        setTimeout(() => setAdvancedMessage(null), 5000);
-      }
-    } catch (error) {
-      console.error('Failed to import config:', error);
-      setAdvancedMessage({
-        type: 'error',
-        message: `导入失败：${error instanceof Error ? error.message : '未知错误'}`,
-      });
-      setTimeout(() => setAdvancedMessage(null), 5000);
-    }
-
-    // 清除文件选择
-    event.target.value = '';
-  };
-
-  const handleResetConfig = async () => {
-    if (!confirm('确定要重置所有设置为默认值吗？此操作不可撤销！')) {
-      return;
-    }
-
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'RESET_CONFIG' });
-      if (response.success) {
-        setAdvancedMessage({ type: 'success', message: '配置已重置为默认值' });
-        setTimeout(() => setAdvancedMessage(null), 3000);
-        // 重新加载配置
-        await loadConfig();
-        await loadQuotaInfo();
-        await loadFlashcardGroups();
-      } else {
-        setAdvancedMessage({ type: 'error', message: '重置失败' });
-        setTimeout(() => setAdvancedMessage(null), 3000);
-      }
-    } catch (error) {
-      console.error('Failed to reset config:', error);
-      setAdvancedMessage({ type: 'error', message: '重置失败' });
-      setTimeout(() => setAdvancedMessage(null), 3000);
-    }
-  };
-
-  const getQuotaColor = () => {
-    if (!quotaInfo) return 'bg-green-500';
-    if (quotaInfo.percentage > 90) return 'bg-red-500';
-    if (quotaInfo.percentage > 70) return 'bg-yellow-500';
-    return 'bg-green-500';
   };
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-3xl mx-auto">
-        {/* 欢迎信息 */}
-        {isWelcome && (
-          <Alert variant="info" className="mb-8">
-            <AlertDescription>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                🎉 欢迎使用智能翻译助手！
-              </h2>
-              <p className="text-muted-foreground mb-3">
-                感谢安装！请先配置您的翻译设置，然后就可以开始使用了。
-              </p>
-              <Alert variant="warning" className="text-sm">
-                <AlertDescription>
-                  <strong>重要提示：</strong> 使用 Google 翻译需要配置 Google Cloud Translation API Key。
-                  <a
-                    href="https://cloud.google.com/translate/docs/setup"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline ml-1"
-                  >
-                    点击查看如何获取
-                  </a>
-                </AlertDescription>
-              </Alert>
-            </AlertDescription>
-          </Alert>
-        )}
+    <div className="max-w-3xl mx-auto px-6">
+      {/* 欢迎信息 */}
+      {isWelcome && (
+        <Alert variant="info" className="mb-8">
+          <AlertDescription>
+            <h2 className="text-2xl font-bold text-foreground mb-2">
+              🎉 欢迎使用智能翻译助手！
+            </h2>
+            <p className="text-muted-foreground mb-3">
+              感谢安装！请先配置您的翻译设置，然后就可以开始使用了。
+            </p>
+            <Alert variant="warning" className="text-sm">
+              <AlertDescription>
+                <strong>重要提示：</strong> 使用 Google 翻译需要配置 Google Cloud Translation API Key。
+                <a
+                  href="https://cloud.google.com/translate/docs/setup"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline ml-1"
+                >
+                  点击查看如何获取
+                </a>
+              </AlertDescription>
+            </Alert>
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {/* 标题栏 - 包含保存按钮 */}
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">设置</h1>
-            <p className="text-muted-foreground">配置您的翻译偏好和 API 密钥</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {saveMessage && (
-              <span className="text-sm text-green-600 dark:text-green-400">
-                {saveMessage}
-              </span>
+      {/* 保存按钮区域 */}
+      <div className="mb-6 flex items-center justify-end gap-3">
+        {saveMessage && (
+          <span className="text-sm text-green-600 dark:text-green-400">
+            {saveMessage}
+          </span>
+        )}
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? '保存中...' : '保存设置'}
+        </Button>
+      </div>
+
+       {/* 云同步设置 */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              {isAuthenticated ? <Cloud className="w-5 h-5 text-blue-500" /> : <CloudOff className="w-5 h-5 text-gray-400" />}
+              云同步
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              使用 Supabase 云同步，在多个设备之间同步您的 Flashcard 数据
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 同步状态 */}
+            <div className="p-4 bg-muted rounded-md flex items-center justify-between">
+              <div>
+                <div className="font-medium">
+                  {isAuthenticated ? '✅ 已连接' : '⚪ 未连接'}
+                </div>
+                {lastSyncTime > 0 && (
+                  <div className="text-sm text-muted-foreground mt-1">
+                    上次同步: {new Date(lastSyncTime).toLocaleString('zh-CN')}
+                  </div>
+                )}
+                {isSyncing && (
+                  <div className="text-sm text-blue-600 mt-1">
+                    正在同步中...
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={() => navigate('/sync')}
+                variant="default"
+                size="sm"
+              >
+                {isAuthenticated ? '管理同步' : '立即登录'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+
+            {/* 快速说明 */}
+            {!isAuthenticated && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-sm">
+                <p className="text-blue-700 dark:text-blue-300">
+                  💡 登录后可在多设备之间同步学习数据，点击右侧按钮开始使用
+                </p>
+              </div>
             )}
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? '保存中...' : '保存设置'}
-            </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* 翻译引擎选择 */}
         <Card className="mb-6">
@@ -633,87 +593,6 @@ export default function App() {
             </div>
           </CardContent>
         </Card>
-
-        {/* 高级设置 */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-xl">高级设置</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* 存储配额 */}
-            {quotaInfo && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>存储配额使用</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {quotaInfo.used} / {quotaInfo.total} 字节 ({quotaInfo.percentage}%)
-                  </span>
-                </div>
-                <Progress value={quotaInfo.percentage} className={`h-2 [&>div]:${getQuotaColor()}`} />
-                {quotaInfo.percentage > 90 && (
-                  <Alert variant="destructive" className="mt-2">
-                    <AlertDescription className="text-xs">
-                      ⚠️ 存储空间即将耗尽，建议清理数据
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            )}
-
-            {/* 配置管理按钮 */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Button variant="secondary" onClick={handleExportConfig} className="flex-1">
-                  📤 导出配置
-                </Button>
-                <Button variant="secondary" asChild className="flex-1">
-                  <label className="cursor-pointer">
-                    📥 导入配置
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleImportConfig}
-                      className="hidden"
-                    />
-                  </label>
-                </Button>
-              </div>
-
-              <Button variant="destructive" onClick={handleResetConfig} className="w-full">
-                🔄 重置为默认设置
-              </Button>
-            </div>
-
-            {/* 高级操作消息 */}
-            {advancedMessage && (
-              <Alert variant={advancedMessage.type === 'success' ? 'success' : advancedMessage.type === 'error' ? 'destructive' : 'info'}>
-                <AlertDescription>{advancedMessage.message}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="p-3 bg-muted rounded-md text-xs text-muted-foreground space-y-1">
-              <p><strong>导出配置：</strong>将当前设置保存为 JSON 文件</p>
-              <p><strong>导入配置：</strong>从 JSON 文件恢复设置</p>
-              <p><strong>重置设置：</strong>将所有设置恢复为默认值</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 关于 */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-xl">关于</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p><strong>版本：</strong> 0.1.0</p>
-              <p><strong>描述：</strong> 一个支持多翻译引擎的智能 Chrome 翻译扩展</p>
-              <p><strong>功能：</strong> 划词翻译、输入翻译、学习、统计等</p>
-              <p><strong>当前支持：</strong> Google Cloud Translation API v2</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
