@@ -24,34 +24,27 @@ export class TranslationManager {
       const config = await ConfigService.getConfig();
       const engine = config.engine;
 
-      console.info(`Translation request: [${engine}] ${from} -> ${to}`, text.substring(0, 50));
-
       // 1. 检查 L1 内存缓存
       const l1CachedResult = translationCache.get(text, from, to, engine);
       if (l1CachedResult) {
-        console.info('Translation L1 cache hit (memory)');
         return l1CachedResult;
       }
 
       // 2. 检查 L2 IndexedDB 缓存
       const l2CachedResult = await indexedDBCache.get(text, from, to, engine);
       if (l2CachedResult) {
-        console.info('Translation L2 cache hit (IndexedDB)');
         // 回填到 L1 缓存
         translationCache.set(text, from, to, engine, l2CachedResult);
         return l2CachedResult;
       }
 
       // 3. 执行翻译（传递配置到工厂）
-      console.info('Translation cache miss, fetching from API...');
       const translator = TranslatorFactory.getTranslator(engine, config);
       const result = await translator.translate({ text, from, to });
 
       // 4. 同时缓存到 L1 和 L2
       translationCache.set(text, from, to, engine, result);
       await indexedDBCache.set(text, from, to, engine, result);
-
-      console.info('Translation success:', result.translation.substring(0, 50));
 
       return result;
     } catch (error) {
@@ -124,8 +117,6 @@ export class TranslationManager {
     try {
       // 保存新配置
       await ConfigService.saveConfig({ engine });
-
-      console.info(`Switched translation engine to: ${engine}`);
     } catch (error) {
       console.error('Failed to switch engine:', error);
       throw new Error('切换翻译引擎失败');
@@ -138,7 +129,6 @@ export class TranslationManager {
   static async clearCache(): Promise<void> {
     translationCache.clear();
     await indexedDBCache.clear();
-    console.info('Translation cache cleared (L1 + L2)');
   }
 
   /**

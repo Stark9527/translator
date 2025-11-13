@@ -57,9 +57,8 @@ export default function TranslatePage() {
         let clipboardText = '';
         try {
           clipboardText = await navigator.clipboard.readText();
-          console.info('剪贴板内容:', clipboardText);
         } catch (clipboardError) {
-          console.info('无法读取剪贴板:', clipboardError);
+          // 无法读取剪贴板（权限问题或其他原因）
         }
 
         // 2. 检查最近的划词内容（10秒内有效）
@@ -70,14 +69,6 @@ export default function TranslatePage() {
 
         const now = Date.now();
         const isRecentSelection = recentSelectionTimestamp && (now - recentSelectionTimestamp < 10000); // 延长到10秒
-
-        console.info('检查划词内容:', {
-          recentSelectionText,
-          recentSelectionTimestamp,
-          timeDiff: recentSelectionTimestamp ? now - recentSelectionTimestamp : 'N/A',
-          isRecentSelection,
-          lastUsedText
-        });
 
         // 3. 优先级判断：剪贴板 > 划词
         if (clipboardText && clipboardText.trim() && clipboardText !== lastUsedText) {
@@ -94,8 +85,6 @@ export default function TranslatePage() {
         if (recentSelectionText) {
           await chrome.storage.session.remove(['recentSelectionText', 'recentSelectionTimestamp']);
         }
-
-        console.info('自动填充决策:', { textToFill: textToFill.substring(0, 50), source });
 
         // 4. 填充内容并触发翻译
         if (textToFill) {

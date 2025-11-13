@@ -33,7 +33,6 @@ export class SupabaseService {
     // 监听认证状态变化
     this.client.auth.onAuthStateChange((event, session) => {
       this.currentUser = session?.user || null;
-      console.info('Auth state changed:', event, this.currentUser?.id);
     });
 
     console.info('Supabase initialized');

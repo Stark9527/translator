@@ -66,8 +66,6 @@ export class FlashcardDB {
           flashcardStore.createIndex('updatedAt', 'updatedAt', { unique: false });
           flashcardStore.createIndex('favorite', 'favorite', { unique: false });
           flashcardStore.createIndex('tags', 'tags', { unique: false, multiEntry: true });
-
-          console.info('Flashcards object store created');
         }
 
         // 创建 groups 存储
@@ -76,8 +74,6 @@ export class FlashcardDB {
             keyPath: 'id',
           });
           groupStore.createIndex('createdAt', 'createdAt', { unique: false });
-
-          console.info('Groups object store created');
         }
 
         // 创建 reviews 存储（复习记录）
@@ -87,8 +83,6 @@ export class FlashcardDB {
           });
           reviewStore.createIndex('flashcardId', 'flashcardId', { unique: false });
           reviewStore.createIndex('review', 'review', { unique: false });
-
-          console.info('Reviews object store created');
         }
 
         // 创建 dailyStats 存储（每日统计）
@@ -96,8 +90,6 @@ export class FlashcardDB {
           db.createObjectStore(this.STORES.dailyStats, {
             keyPath: 'date',
           });
-
-          console.info('DailyStats object store created');
         }
 
         // 版本 1 -> 2：迁移 dailyStats 数据结构
@@ -648,7 +640,6 @@ export class FlashcardDB {
       transaction.objectStore(this.STORES.dailyStats).clear();
 
       transaction.oncomplete = () => {
-        console.info('FlashcardDB cleared');
         resolve();
       };
 
@@ -700,7 +691,6 @@ export class FlashcardDB {
       const request = store.clear();
 
       request.onsuccess = () => {
-        console.info('DailyStats cleared');
         resolve();
       };
       request.onerror = () => reject(request.error);
@@ -714,7 +704,6 @@ export class FlashcardDB {
     if (this.db) {
       this.db.close();
       this.db = null;
-      console.info('FlashcardDB connection closed');
     }
   }
 }

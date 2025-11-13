@@ -36,8 +36,6 @@ chrome.runtime.onInstalled.addListener(async details => {
 
 // 监听来自 Content Script 和 Popup 的消息
 chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
-  console.info('Received message:', message.type, 'from:', sender);
-
   // 异步处理消息
   handleMessage(message, sender)
     .then(response => {
@@ -120,7 +118,6 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
 
     case 'TRANSLATE': {
       // 执行翻译
-      console.info('Translation request:', payload);
       const result = await TranslationManager.translate(payload);
       return result;
     }
@@ -128,7 +125,6 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
     case 'CREATE_FLASHCARD': {
       // 创建 Flashcard
       const { translation, groupId } = payload as { translation: any; groupId: string };
-      console.info('Create flashcard request:', { translation, groupId });
 
       // 确保默认分组存在
       await flashcardService.ensureDefaultGroup();
@@ -138,7 +134,6 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
         groupId: groupId || 'default'
       });
 
-      console.info('Flashcard created:', flashcard);
       return flashcard;
     }
 
@@ -168,12 +163,10 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
     case 'SAVE_SELECTION': {
       // 保存划词内容到 session storage（由 content script 触发）
       const { text, timestamp } = payload as { text: string; timestamp: number };
-      console.info('保存划词内容:', { text, timestamp });
       await chrome.storage.session.set({
         recentSelectionText: text,
         recentSelectionTimestamp: timestamp
       });
-      console.info('✅ 划词内容已保存到 session storage');
       return { success: true };
     }
 
@@ -207,9 +200,7 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
 
     case 'SYNC_NOW': {
       // 立即同步
-      console.info('开始云同步...');
       const result = await syncService.sync();
-      console.info('同步完成:', result);
       return result;
     }
 
@@ -229,8 +220,6 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
 
 // 监听快捷键命令
 chrome.commands.onCommand.addListener(command => {
-  console.info('Command triggered:', command);
-
   if (command === 'translate-selection') {
     // 触发划词翻译
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -246,8 +235,6 @@ chrome.commands.onCommand.addListener(command => {
 
 // 监听配置变化
 ConfigService.onConfigChange(async (config) => {
-  console.info('Config changed:', config);
-
   // 清除翻译缓存（当引擎切换时）
   await TranslationManager.clearCache();
 });

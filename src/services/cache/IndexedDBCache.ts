@@ -54,7 +54,6 @@ export class IndexedDBCache {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.info('IndexedDB initialized successfully');
         resolve();
 
         // 启动后台清理任务
@@ -73,8 +72,6 @@ export class IndexedDBCache {
           store.createIndex('expiresAt', 'expiresAt', { unique: false });
           store.createIndex('engine', 'engine', { unique: false });
           store.createIndex('lastAccessed', 'lastAccessed', { unique: false });
-
-          console.info('IndexedDB object store created');
         }
       };
     });
@@ -192,7 +189,6 @@ export class IndexedDBCache {
         const request = store.clear();
 
         request.onsuccess = () => {
-          console.info('IndexedDB cache cleared');
           resolve();
         };
 
@@ -297,8 +293,6 @@ export class IndexedDBCache {
       for (const entry of toDelete) {
         await this.deleteEntry(entry.key);
       }
-
-      console.info(`IndexedDB: Removed ${deleteCount} LRU entries to free up space`);
     }
   }
 
@@ -331,10 +325,6 @@ export class IndexedDBCache {
 
       for (const key of expiredKeys) {
         await this.deleteEntry(key);
-      }
-
-      if (expiredKeys.length > 0) {
-        console.info(`IndexedDB: Cleaned up ${expiredKeys.length} expired entries`);
       }
     } catch (error) {
       console.error('IndexedDB cleanup error:', error);
@@ -395,7 +385,6 @@ export class IndexedDBCache {
     if (this.db) {
       this.db.close();
       this.db = null;
-      console.info('IndexedDB connection closed');
     }
   }
 }

@@ -42,11 +42,8 @@ export default function SelectionPopup() {
     let lastSelectedText = ''; // 记录上一次选中的文字
 
     const handleMouseUp = (e: MouseEvent) => {
-      console.info('MouseUp 事件触发');
-
       // 如果 popup 已打开，不处理新的划词（用户正在使用 popup）
       if (showPopupRef.current) {
-        console.info('Popup 已打开，忽略');
         return;
       }
 
@@ -55,16 +52,11 @@ export default function SelectionPopup() {
       const selection = window.getSelection();
       const text = selection?.toString().trim();
 
-      console.info('选中的文本:', text, '长度:', text?.length);
-
       if (text && text.length > 0 && text.length < 500) {
         // 如果选中的文字和上次相同，说明用户只是点击了已划词区域，不重新显示 icon
         if (text === lastSelectedText) {
-          console.info('与上次选中的文本相同，忽略');
           return;
         }
-
-        console.info('准备显示 icon');
         lastSelectedText = text; // 更新记录
         setSelectedText(text);
 
@@ -72,8 +64,6 @@ export default function SelectionPopup() {
         chrome.runtime.sendMessage({
           type: 'SAVE_SELECTION',
           payload: { text, timestamp: Date.now() }
-        }).then(() => {
-          console.info('✅ 划词内容已发送到 background 保存');
         }).catch(err => {
           console.error('❌ 保存划词内容失败:', err);
         });
@@ -245,11 +235,8 @@ export default function SelectionPopup() {
     setIsSavingFlashcard(true);
 
     try {
-      console.info('Saving flashcard:', translationResult);
-
       // 通过 background script 创建 flashcard
       const groupId = config?.defaultFlashcardGroupId || 'default';
-      console.info('Using groupId:', groupId);
 
       const response = await chrome.runtime.sendMessage({
         type: 'CREATE_FLASHCARD',
@@ -260,7 +247,6 @@ export default function SelectionPopup() {
       });
 
       if (response.success && response.data) {
-        console.info('Flashcard saved successfully:', response.data);
         // 更新卡片已存在状态
         setIsCardExists(true);
       } else {

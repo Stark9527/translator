@@ -112,7 +112,6 @@ export class DictionaryTranslator implements ITranslator {
       // Microsoft Dictionary返回的normalizedSource就是词根形式
       const normalizedWord = msLookupResponse.normalizedSource;
       if (normalizedWord && normalizedWord.toLowerCase() !== text.trim().toLowerCase()) {
-        console.info(`尝试查询词根形式: ${normalizedWord}`);
         try {
           const fallbackResult = await this.freeDictService.lookup(normalizedWord, 'en');
           if (fallbackResult) {

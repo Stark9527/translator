@@ -12,7 +12,6 @@ function mountTranslatorUI() {
   // 先检查是否已经存在容器，如果存在则先移除（防止重复加载）
   const existingContainer = document.getElementById('translator-extension-root');
   if (existingContainer) {
-    console.info('Removing existing translator container to prevent duplicate instances');
     existingContainer.remove();
   }
 
@@ -40,15 +39,12 @@ function mountTranslatorUI() {
       <SelectionPopup />
     </React.StrictMode>
   );
-
-  console.info('Translator UI mounted with Shadow DOM isolation');
 }
 
 // 监听来自 Background 的消息
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'TRIGGER_TRANSLATE') {
     // 处理快捷键触发的翻译
-    console.info('Translate triggered by shortcut');
     // TODO: 触发翻译逻辑
   }
 

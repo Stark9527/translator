@@ -310,8 +310,6 @@ export class ConfigService {
 
       // 通知监听器
       this.notifyListeners(newConfig, changes);
-
-      console.info('Config saved successfully:', newConfig);
     } catch (error) {
       if (error instanceof ConfigValidationError || error instanceof StorageQuotaError) {
         throw error;
@@ -338,8 +336,6 @@ export class ConfigService {
       if (oldConfig) {
         this.notifyListeners(this.cachedConfig, this.cachedConfig);
       }
-
-      console.info('Config reset to default');
     } catch (error) {
       console.error('Failed to reset config:', error);
       throw new Error('重置配置失败');
@@ -385,8 +381,6 @@ export class ConfigService {
 
       // 保存配置
       await this.saveConfig(config);
-
-      console.info('Config imported successfully');
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new ConfigValidationError('配置 JSON 格式错误');

@@ -131,10 +131,6 @@ export class TranslationCache {
     }
 
     keysToDelete.forEach(key => this.cache.delete(key));
-
-    if (keysToDelete.length > 0) {
-      console.info(`Cleaned up ${keysToDelete.length} expired cache entries`);
-    }
   }
 
   /**

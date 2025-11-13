@@ -240,13 +240,6 @@ export class StudySessionService {
     this.currentSession.endTime = Date.now();
 
     // 这里可以添加会话结束的额外逻辑，比如保存会话记录等
-    console.info('Study session completed:', {
-      duration: this.currentSession.endTime - this.currentSession.startTime,
-      reviewed: this.currentSession.reviewedCount,
-      correct: this.currentSession.correctCount,
-      wrong: this.currentSession.wrongCount,
-    });
-
     this.currentSession = null;
   }
 

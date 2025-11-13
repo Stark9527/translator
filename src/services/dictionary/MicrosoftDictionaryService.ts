@@ -63,7 +63,6 @@ export class MicrosoftDictionaryService {
           }
 
           const data: MSDictionaryLookupResponse[] = await response.json();
-          console.log('Microsoft Dictionary Lookup Response:', data)
 
 
           if (!data || data.length === 0) {

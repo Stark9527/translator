@@ -63,19 +63,15 @@ export class SyncService {
         timestamp: Date.now(),
       };
 
-      console.info('开始同步...');
-
       // 1. 同步分组
       const groupResult = await this.syncGroups();
       result.uploadedCount += groupResult.uploaded;
       result.downloadedCount += groupResult.downloaded;
-      console.info('分组同步完成:', groupResult);
 
       // 2. 同步卡片
       const cardResult = await this.syncFlashcards();
       result.uploadedCount += cardResult.uploaded;
       result.downloadedCount += cardResult.downloaded;
-      console.info('卡片同步完成:', cardResult);
 
       result.status = SyncStatus.Success;
       this.lastSyncTime = Date.now();
