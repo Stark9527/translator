@@ -47,7 +47,6 @@ export default function TranslatePage() {
 
     const autoFocusAndFillText = async () => {
       let textToFill = '';
-      let source = ''; // 用于调试：记录内容来源
 
       try {
         // 获取上次已使用的内容
@@ -70,15 +69,13 @@ export default function TranslatePage() {
         const now = Date.now();
         const isRecentSelection = recentSelectionTimestamp && (now - recentSelectionTimestamp < 10000); // 延长到10秒
 
-        // 3. 优先级判断：剪贴板 > 划词
+        // 3. 优先级判断:剪贴板 > 划词
         if (clipboardText && clipboardText.trim() && clipboardText !== lastUsedText) {
           // 优先使用剪贴板
           textToFill = clipboardText;
-          source = 'clipboard';
         } else if (isRecentSelection && recentSelectionText && recentSelectionText.trim() && recentSelectionText !== lastUsedText) {
           // 如果剪贴板无效，使用划词内容
           textToFill = recentSelectionText;
-          source = 'selection';
         }
 
         // 清除划词内容记录（无论是否使用）

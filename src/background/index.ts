@@ -234,7 +234,7 @@ chrome.commands.onCommand.addListener(command => {
 });
 
 // 监听配置变化
-ConfigService.onConfigChange(async (config) => {
+ConfigService.onConfigChange(async (_config) => {
   // 清除翻译缓存（当引擎切换时）
   await TranslationManager.clearCache();
 });

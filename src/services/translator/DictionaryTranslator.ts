@@ -48,18 +48,36 @@ export class DictionaryTranslator implements ITranslator {
   async translate(params: TranslateParams): Promise<TranslateResult> {
     const { text, from, to } = params;
 
+    // 当 from 为 'auto' 时，先检测语言
+    let actualSourceLang: LanguageCode = from;
+    if (from === 'auto' && isWord(text)) {
+      try {
+        const detected = await this.detectLanguage(text);
+        // 将检测结果转换为 LanguageCode（只信任已知的语言代码）
+        if (detected === 'en' || detected === 'zh-CN' || detected === 'zh-TW' ||
+            detected === 'ja' || detected === 'ko' || detected === 'fr' ||
+            detected === 'de' || detected === 'es' || detected === 'ru' || detected === 'it') {
+          actualSourceLang = detected as LanguageCode;
+        }
+      } catch (error) {
+        console.warn('语言检测失败，继续使用auto:', error);
+        actualSourceLang = 'auto';
+      }
+    }
+
     // 判断是否应该使用词典API
     const shouldUseDictionary =
       this.enableDictionary &&
       this.microsoftDictService &&
       isWord(text) &&
-      from === 'en' &&
+      (actualSourceLang === 'en' || actualSourceLang === 'auto') && // 支持自动检测
       to === 'zh-CN';
 
     if (shouldUseDictionary) {
       try {
-        // 尝试使用词典API
-        return await this.dictionaryTranslate(params);
+        // 如果实际检测到的语言是英文，使用词典API
+        const dictParams = { ...params, from: actualSourceLang === 'auto' ? 'en' : actualSourceLang };
+        return await this.dictionaryTranslate(dictParams);
       } catch (error) {
         // 词典查询失败，降级到Google翻译
         console.warn('词典查询失败，降级到Google翻译:', error);

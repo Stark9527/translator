@@ -31,7 +31,7 @@ export class SupabaseService {
     });
 
     // 监听认证状态变化
-    this.client.auth.onAuthStateChange((event, session) => {
+    this.client.auth.onAuthStateChange((_event, session) => {
       this.currentUser = session?.user || null;
     });
 
