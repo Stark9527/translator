@@ -112,11 +112,12 @@ export class SyncService {
     // 1. 获取本地所有分组
     const localGroups = await flashcardDB.getAllGroups();
 
-    // 2. 获取云端所有分组
+    // 2. 获取云端所有分组（过滤掉已删除的分组）
     const { data: remoteGroups, error } = await client
       .from('groups')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('deleted', false);
 
     if (error) {
       throw new Error(`获取云端分组失败: ${error.message}`);
@@ -191,11 +192,12 @@ export class SyncService {
     // 1. 获取本地所有卡片
     const localCards = await flashcardDB.getAllFlashcards();
 
-    // 2. 获取云端所有卡片
+    // 2. 获取云端所有卡片（过滤掉已删除的卡片）
     const { data: remoteCards, error } = await client
       .from('flashcards')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('deleted', false);
 
     if (error) {
       throw new Error(`获取云端卡片失败: ${error.message}`);
@@ -262,6 +264,8 @@ export class SyncService {
       name: group.name,
       description: group.description || null,
       color: group.color || '#3b82f6',
+      deleted: false, // 上传时标记为未删除
+      deleted_at: null,
     };
 
     const { error } = await client
@@ -299,14 +303,18 @@ export class SyncService {
   }
 
   /**
-   * 删除云端分组
+   * 删除云端分组（软删除）
    */
   private async deleteRemoteGroup(groupId: string): Promise<void> {
     const client = supabaseService.getClient();
 
+    // 使用软删除：标记 deleted = true，记录删除时间
     const { error } = await client
       .from('groups')
-      .delete()
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+      })
       .eq('id', groupId);
 
     if (error) {
@@ -315,14 +323,18 @@ export class SyncService {
   }
 
   /**
-   * 删除云端卡片
+   * 删除云端卡片（软删除）
    */
   private async deleteRemoteFlashcard(cardId: string): Promise<void> {
     const client = supabaseService.getClient();
 
+    // 使用软删除：标记 deleted = true，记录删除时间
     const { error } = await client
       .from('flashcards')
-      .delete()
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+      })
       .eq('id', cardId);
 
     if (error) {
@@ -360,6 +372,13 @@ export class SyncService {
       reps: card.fsrsCard.reps,
       lapses: card.fsrsCard.lapses,
       last_review: card.fsrsCard.last_review ? new Date(card.fsrsCard.last_review).toISOString() : null,
+
+      // 软删除字段
+      deleted: false, // 上传时标记为未删除
+      deleted_at: null,
+
+      // 收藏字段
+      favorite: card.favorite || false,
     };
 
     const { error } = await client
@@ -394,7 +413,7 @@ export class SyncService {
 
       groupId: cardRow.group_id || 'default',
       tags: [],
-      favorite: false,
+      favorite: cardRow.favorite || false, // 从云端读取收藏状态
 
       // 重新组装 FSRS 数据
       fsrsCard: {
