@@ -112,12 +112,11 @@ export class SyncService {
     // 1. 获取本地所有分组
     const localGroups = await flashcardDB.getAllGroups();
 
-    // 2. 获取云端所有分组（过滤掉已删除的分组）
+    // 2. 获取云端所有分组（包括已删除的，以便正确处理删除同步）
     const { data: remoteGroups, error } = await client
       .from('groups')
       .select('*')
-      .eq('user_id', userId)
-      .eq('deleted', false);
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(`获取云端分组失败: ${error.message}`);
@@ -129,9 +128,10 @@ export class SyncService {
 
     let uploaded = 0;
     let downloaded = 0;
+    let localDeleted = 0;
     const conflicts = 0;
 
-    // 3. 上传本地新增/更新的分组
+    // 3. 同步本地分组
     for (const localGroup of localGroups) {
       // 跳过默认分组（不需要同步到云端）
       if (localGroup.id === 'default') {
@@ -144,6 +144,11 @@ export class SyncService {
         // 本地新增，上传到云端
         await this.uploadGroup(localGroup, userId);
         uploaded++;
+      } else if (remoteGroup.deleted) {
+        // 云端已删除，删除本地分组
+        await flashcardDB.deleteGroup(localGroup.id);
+        localDeleted++;
+        console.log(`🗑️ 删除本地分组（云端已删除）: ${localGroup.name} (${localGroup.id})`);
       } else if (localGroup.updatedAt > new Date(remoteGroup.updated_at).getTime()) {
         // 本地更新较新，上传到云端
         await this.uploadGroup(localGroup, userId);
@@ -158,23 +163,25 @@ export class SyncService {
     }
 
     // 4. 处理云端存在但本地不存在的分组
-    // 需要区分：是云端新增还是本地删除
-    // 策略：检查本地分组 ID 集合，如果本地没有且不是默认分组，说明是本地删除，应该删除云端
     const localGroupIds = new Set(localGroups.map(g => g.id));
-    let deleted = 0;
+    let remoteDeleted = 0;
 
     for (const remoteGroup of remoteGroupsMap.values()) {
-      // 如果本地没有这个分组（且不是默认分组），说明是本地删除了，应该删除云端
-      // 注意：默认分组不同步到云端，所以云端不会有默认分组
+      if (remoteGroup.deleted) {
+        // 云端已删除且本地也不存在，跳过
+        continue;
+      }
+
+      // 云端存在且未删除，但本地不存在
       if (!localGroupIds.has(remoteGroup.id)) {
-        // 从云端删除这个分组
+        // 说明是本地删除了，应该软删除云端
         await this.deleteRemoteGroup(remoteGroup.id);
-        deleted++;
-        console.log(`🗑️ 删除云端分组: ${remoteGroup.name} (${remoteGroup.id})`);
+        remoteDeleted++;
+        console.log(`🗑️ 软删除云端分组（本地已删除）: ${remoteGroup.name} (${remoteGroup.id})`);
       }
     }
 
-    console.log(`✅ 分组同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 删除: ${deleted}`);
+    console.log(`✅ 分组同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 本地删除: ${localDeleted}, 云端软删除: ${remoteDeleted}`);
     return { uploaded, downloaded, conflicts };
   }
 
@@ -192,12 +199,11 @@ export class SyncService {
     // 1. 获取本地所有卡片
     const localCards = await flashcardDB.getAllFlashcards();
 
-    // 2. 获取云端所有卡片（过滤掉已删除的卡片）
+    // 2. 获取云端所有卡片（包括已删除的，以便正确处理删除同步）
     const { data: remoteCards, error } = await client
       .from('flashcards')
       .select('*')
-      .eq('user_id', userId)
-      .eq('deleted', false);
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(`获取云端卡片失败: ${error.message}`);
@@ -209,6 +215,7 @@ export class SyncService {
 
     let uploaded = 0;
     let downloaded = 0;
+    let localDeleted = 0;
     const conflicts = 0;
 
     // 3. 同步本地卡片
@@ -219,6 +226,11 @@ export class SyncService {
         // 本地新增，上传到云端
         await this.uploadFlashcard(localCard, userId);
         uploaded++;
+      } else if (remoteCard.deleted) {
+        // 云端已删除，删除本地卡片
+        await flashcardDB.deleteFlashcard(localCard.id);
+        localDeleted++;
+        console.log(`🗑️ 删除本地卡片（云端已删除）: ${localCard.word} (${localCard.id})`);
       } else if (localCard.updatedAt > new Date(remoteCard.updated_at).getTime()) {
         // 本地更新较新，上传到云端
         await this.uploadFlashcard(localCard, userId);
@@ -233,22 +245,25 @@ export class SyncService {
     }
 
     // 4. 处理云端存在但本地不存在的卡片
-    // 需要区分：是云端新增还是本地删除
-    // 策略：检查本地卡片 ID 集合，如果本地没有，说明是本地删除，应该删除云端
     const localCardIds = new Set(localCards.map(c => c.id));
-    let deleted = 0;
+    let remoteDeleted = 0;
 
     for (const remoteCard of remoteCardsMap.values()) {
-      // 如果本地没有这张卡片，说明是本地删除了，应该删除云端
+      if (remoteCard.deleted) {
+        // 云端已删除且本地也不存在，跳过
+        continue;
+      }
+
+      // 云端存在且未删除，但本地不存在
       if (!localCardIds.has(remoteCard.id)) {
-        // 从云端删除这张卡片
+        // 说明是本地删除了，应该软删除云端
         await this.deleteRemoteFlashcard(remoteCard.id);
-        deleted++;
-        console.log(`🗑️ 删除云端卡片: ${remoteCard.word} (${remoteCard.id})`);
+        remoteDeleted++;
+        console.log(`🗑️ 软删除云端卡片（本地已删除）: ${remoteCard.word} (${remoteCard.id})`);
       }
     }
 
-    console.log(`✅ 卡片同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 删除: ${deleted}`);
+    console.log(`✅ 卡片同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 本地删除: ${localDeleted}, 云端软删除: ${remoteDeleted}`);
     return { uploaded, downloaded, conflicts };
   }
 
