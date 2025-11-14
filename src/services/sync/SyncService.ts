@@ -116,7 +116,8 @@ export class SyncService {
     const { data: remoteGroups, error } = await client
       .from('groups')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('deleted', false);
 
     if (error) {
       throw new Error(`获取云端分组失败: ${error.message}`);
@@ -203,7 +204,8 @@ export class SyncService {
     const { data: remoteCards, error } = await client
       .from('flashcards')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('deleted', false);
 
     if (error) {
       throw new Error(`获取云端卡片失败: ${error.message}`);
