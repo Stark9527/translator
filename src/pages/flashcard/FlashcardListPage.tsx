@@ -86,7 +86,6 @@ export default function FlashcardListPage() {
       };
       initialize();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   // 应用筛选和排序

@@ -237,7 +237,7 @@ export default function App() {
               云同步
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              使用 Supabase 云同步，在多个设备之间同步您的 Flashcard 数据
+              使用 Supabase 云同步，在多个设备之间同步您的 卡片、卡组和学习统计数据
             </p>
           </CardHeader>
           <CardContent className="space-y-4">

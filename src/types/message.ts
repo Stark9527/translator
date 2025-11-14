@@ -143,6 +143,18 @@ export interface GetSyncStatusMessage extends BaseMessage {
   payload: null;
 }
 
+// 启用自动同步消息
+export interface EnableAutoSyncMessage extends BaseMessage {
+  type: 'ENABLE_AUTO_SYNC';
+  payload: null;
+}
+
+// 禁用自动同步消息
+export interface DisableAutoSyncMessage extends BaseMessage {
+  type: 'DISABLE_AUTO_SYNC';
+  payload: null;
+}
+
 // 存储配额信息
 export interface StorageQuotaInfo {
   used: number;
@@ -171,7 +183,9 @@ export type Message =
   | SupabaseSignOutMessage
   | SupabaseGetUserMessage
   | SyncNowMessage
-  | GetSyncStatusMessage;
+  | GetSyncStatusMessage
+  | EnableAutoSyncMessage
+  | DisableAutoSyncMessage;
 
 // 消息响应类型映射
 export type MessageResponse<T extends Message> = T extends TranslateMessage

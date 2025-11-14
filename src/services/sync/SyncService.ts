@@ -39,6 +39,11 @@ const FSRS_STRING_TO_STATE = {
 export class SyncService {
   private isSyncing = false;
   private lastSyncTime: number = 0;
+  private autoSyncEnabled = true;
+  private syncDebounceTimer: number | null = null;
+  private periodicSyncTimer: number | null = null;
+  private readonly DEBOUNCE_DELAY = 3000; // 3 秒防抖
+  private readonly PERIODIC_SYNC_INTERVAL = 30000; // 30 秒定期同步
 
   /**
    * 执行完整同步
@@ -404,6 +409,121 @@ export class SyncService {
    */
   getIsSyncing(): boolean {
     return this.isSyncing;
+  }
+
+  /**
+   * 触发防抖同步
+   * 在数据变化时调用此方法，会在一定延迟后自动同步
+   */
+  triggerAutoSync(): void {
+    if (!this.autoSyncEnabled) {
+      console.log('自动同步已禁用');
+      return;
+    }
+
+    if (!supabaseService.isAuthenticated()) {
+      console.log('用户未登录，跳过自动同步');
+      return;
+    }
+
+    // 清除现有的防抖计时器
+    if (this.syncDebounceTimer) {
+      clearTimeout(this.syncDebounceTimer);
+    }
+
+    // 设置新的防抖计时器
+    this.syncDebounceTimer = setTimeout(() => {
+      console.log('🔄 触发自动同步...');
+      this.sync().catch(error => {
+        console.error('自动同步失败:', error);
+      });
+    }, this.DEBOUNCE_DELAY);
+  }
+
+  /**
+   * 启用自动同步
+   */
+  enableAutoSync(): void {
+    const wasEnabled = this.autoSyncEnabled;
+    this.autoSyncEnabled = true;
+
+    if (!wasEnabled) {
+      console.log('✅ 自动同步已启用');
+    }
+
+    // 启动定期同步（如果尚未启动）
+    if (!this.periodicSyncTimer) {
+      this.startPeriodicSync();
+    }
+  }
+
+  /**
+   * 启动定期同步
+   */
+  private startPeriodicSync(): void {
+    // 清除现有的定时器
+    if (this.periodicSyncTimer) {
+      clearInterval(this.periodicSyncTimer);
+    }
+
+    // 设置新的定期同步定时器
+    this.periodicSyncTimer = setInterval(() => {
+      if (!supabaseService.isAuthenticated()) {
+        console.log('⏭️ 用户未登录，跳过定期同步');
+        return;
+      }
+
+      if (this.isSyncing) {
+        console.log('⏭️ 同步正在进行中，跳过本次定期同步');
+        return;
+      }
+
+      console.log('🔄 执行定期同步...');
+      this.sync().catch(error => {
+        console.error('定期同步失败:', error);
+      });
+    }, this.PERIODIC_SYNC_INTERVAL);
+
+    console.log(`⏰ 定期同步已启动 (间隔: ${this.PERIODIC_SYNC_INTERVAL / 1000}秒)`);
+  }
+
+  /**
+   * 停止定期同步
+   */
+  private stopPeriodicSync(): void {
+    if (this.periodicSyncTimer) {
+      clearInterval(this.periodicSyncTimer);
+      this.periodicSyncTimer = null;
+      console.log('⏰ 定期同步已停止');
+    }
+  }
+
+  /**
+   * 禁用自动同步
+   */
+  disableAutoSync(): void {
+    if (!this.autoSyncEnabled) {
+      return;
+    }
+
+    this.autoSyncEnabled = false;
+    console.log('❌ 自动同步已禁用');
+
+    // 清除防抖计时器
+    if (this.syncDebounceTimer) {
+      clearTimeout(this.syncDebounceTimer);
+      this.syncDebounceTimer = null;
+    }
+
+    // 停止定期同步
+    this.stopPeriodicSync();
+  }
+
+  /**
+   * 检查自动同步是否启用
+   */
+  isAutoSyncEnabled(): boolean {
+    return this.autoSyncEnabled;
   }
 }
 

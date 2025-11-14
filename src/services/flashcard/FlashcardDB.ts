@@ -16,6 +16,7 @@ export class FlashcardDB {
   private readonly dbName = 'FlashcardDB';
   private readonly version = 2;
   private initPromise: Promise<void> | null = null;
+  private onDataChangeCallback: (() => void) | null = null;
 
   // ObjectStore 名称
   private readonly STORES = {
@@ -198,7 +199,10 @@ export class FlashcardDB {
         const store = transaction.objectStore(this.STORES.flashcards);
         const request = store.add(flashcard);
 
-        request.onsuccess = () => resolve();
+        request.onsuccess = () => {
+          this.triggerDataChange();
+          resolve();
+        };
         request.onerror = () => reject(request.error);
       });
     });
@@ -234,7 +238,10 @@ export class FlashcardDB {
         const store = transaction.objectStore(this.STORES.flashcards);
         const request = store.put(flashcard);
 
-        request.onsuccess = () => resolve();
+        request.onsuccess = () => {
+          this.triggerDataChange();
+          resolve();
+        };
         request.onerror = () => reject(request.error);
       });
     });
@@ -251,7 +258,10 @@ export class FlashcardDB {
       const store = transaction.objectStore(this.STORES.flashcards);
       const request = store.delete(id);
 
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        this.triggerDataChange();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -272,6 +282,7 @@ export class FlashcardDB {
         request.onsuccess = () => {
           completed++;
           if (completed === flashcards.length) {
+            this.triggerDataChange();
             resolve();
           }
         };
@@ -300,6 +311,7 @@ export class FlashcardDB {
         request.onsuccess = () => {
           completed++;
           if (completed === ids.length) {
+            this.triggerDataChange();
             resolve();
           }
         };
@@ -452,7 +464,10 @@ export class FlashcardDB {
         const store = transaction.objectStore(this.STORES.groups);
         const request = store.add(group);
 
-        request.onsuccess = () => resolve();
+        request.onsuccess = () => {
+          this.triggerDataChange();
+          resolve();
+        };
         request.onerror = () => reject(request.error);
       });
     });
@@ -488,7 +503,10 @@ export class FlashcardDB {
         const store = transaction.objectStore(this.STORES.groups);
         const request = store.put(group);
 
-        request.onsuccess = () => resolve();
+        request.onsuccess = () => {
+          this.triggerDataChange();
+          resolve();
+        };
         request.onerror = () => reject(request.error);
       });
     });
@@ -505,7 +523,10 @@ export class FlashcardDB {
       const store = transaction.objectStore(this.STORES.groups);
       const request = store.delete(id);
 
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        this.triggerDataChange();
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -704,6 +725,22 @@ export class FlashcardDB {
     if (this.db) {
       this.db.close();
       this.db = null;
+    }
+  }
+
+  /**
+   * 设置数据变化回调
+   */
+  setOnDataChange(callback: () => void): void {
+    this.onDataChangeCallback = callback;
+  }
+
+  /**
+   * 触发数据变化回调
+   */
+  private triggerDataChange(): void {
+    if (this.onDataChangeCallback) {
+      this.onDataChangeCallback();
     }
   }
 }

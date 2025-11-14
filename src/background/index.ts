@@ -5,11 +5,23 @@ import { TranslationManager } from '@/services/translation/TranslationManager';
 import { ConfigService, ConfigValidationError, StorageQuotaError } from '@/services/config/ConfigService';
 import { flashcardService } from '@/services/flashcard';
 import { supabaseService, syncService } from '@/services/sync';
+import { flashcardDB } from '@/services/flashcard/FlashcardDB';
 
 console.info('Background service worker started');
 
 // 初始化 Supabase
 supabaseService.initialize();
+
+// 连接 FlashcardDB 数据变化事件到自动同步
+flashcardDB.setOnDataChange(() => {
+  console.log('📝 数据变化检测，准备触发自动同步...');
+  syncService.triggerAutoSync();
+});
+
+// 启用自动同步（包括定期同步）
+syncService.enableAutoSync();
+
+console.info('✅ 自动同步已启用');
 
 // 监听扩展安装事件
 chrome.runtime.onInstalled.addListener(async details => {
@@ -210,7 +222,20 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
         isSyncing: syncService.getIsSyncing(),
         lastSyncTime: syncService.getLastSyncTime(),
         isAuthenticated: supabaseService.isAuthenticated(),
+        autoSyncEnabled: syncService.isAutoSyncEnabled(),
       };
+    }
+
+    case 'ENABLE_AUTO_SYNC': {
+      // 启用自动同步
+      syncService.enableAutoSync();
+      return { success: true };
+    }
+
+    case 'DISABLE_AUTO_SYNC': {
+      // 禁用自动同步
+      syncService.disableAutoSync();
+      return { success: true };
     }
 
     default:

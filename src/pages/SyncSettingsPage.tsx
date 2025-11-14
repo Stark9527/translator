@@ -6,11 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { sendMessage } from '@/utils/message';
 import { Cloud, CloudOff, RefreshCw, Check, X, LogIn, LogOut, UserPlus } from 'lucide-react';
+import type { SyncResult } from '@/types/supabase';
 
 interface SyncStatus {
   isSyncing: boolean;
   lastSyncTime: number;
   isAuthenticated: boolean;
+  autoSyncEnabled: boolean;
 }
 
 export function SyncSettingsPage() {
@@ -20,6 +22,7 @@ export function SyncSettingsPage() {
     isSyncing: false,
     lastSyncTime: 0,
     isAuthenticated: false,
+    autoSyncEnabled: true,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -123,7 +126,7 @@ export function SyncSettingsPage() {
     setMessage(null);
 
     try {
-      const result = await sendMessage({ type: 'SYNC_NOW', payload: null }) as any;
+      const result = await sendMessage({ type: 'SYNC_NOW', payload: null }) as unknown as SyncResult;
 
       if (result.status === 'success') {
         setMessage({
@@ -142,45 +145,90 @@ export function SyncSettingsPage() {
     }
   };
 
+  // 切换自动同步
+  const handleToggleAutoSync = async () => {
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const messageType = syncStatus.autoSyncEnabled ? 'DISABLE_AUTO_SYNC' : 'ENABLE_AUTO_SYNC';
+      await sendMessage({ type: messageType, payload: null });
+
+      setMessage({
+        type: 'success',
+        text: syncStatus.autoSyncEnabled ? '自动同步已禁用' : '自动同步已启用',
+      });
+
+      await fetchSyncStatus();
+    } catch (error) {
+      setMessage({ type: 'error', text: (error as Error).message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold mb-2">云同步设置</h1>
         <p className="text-sm text-gray-600">
-          使用 Supabase 云同步，在多个设备之间同步您的 Flashcard 数据
+          使用 Supabase 云同步，在多个设备之间同步您的 卡片、卡组和学习统计数据
         </p>
       </div>
 
       {/* 同步状态卡片 */}
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            {syncStatus.isAuthenticated ? (
-              <Cloud className="w-6 h-6 text-blue-500" />
-            ) : (
-              <CloudOff className="w-6 h-6 text-gray-400" />
-            )}
-            <div>
-              <div className="font-semibold">
-                {syncStatus.isAuthenticated ? '已连接' : '未连接'}
-              </div>
-              {syncStatus.lastSyncTime > 0 && (
-                <div className="text-sm text-gray-600">
-                  上次同步: {new Date(syncStatus.lastSyncTime).toLocaleString('zh-CN')}
-                </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {syncStatus.isAuthenticated ? (
+                <Cloud className="w-6 h-6 text-blue-500" />
+              ) : (
+                <CloudOff className="w-6 h-6 text-gray-400" />
               )}
+              <div>
+                <div className="font-semibold">
+                  {syncStatus.isAuthenticated ? '已连接' : '未连接'}
+                </div>
+                {syncStatus.lastSyncTime > 0 && (
+                  <div className="text-sm text-gray-600">
+                    上次同步: {new Date(syncStatus.lastSyncTime).toLocaleString('zh-CN')}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {syncStatus.isAuthenticated && (
+              <Button
+                onClick={handleSyncNow}
+                disabled={isLoading || syncStatus.isSyncing}
+                size="sm"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${syncStatus.isSyncing ? 'animate-spin' : ''}`} />
+                {syncStatus.isSyncing ? '同步中...' : '立即同步'}
+              </Button>
+            )}
           </div>
 
           {syncStatus.isAuthenticated && (
-            <Button
-              onClick={handleSyncNow}
-              disabled={isLoading || syncStatus.isSyncing}
-              size="sm"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${syncStatus.isSyncing ? 'animate-spin' : ''}`} />
-              {syncStatus.isSyncing ? '同步中...' : '立即同步'}
-            </Button>
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div>
+                <div className="font-medium text-sm">自动同步</div>
+                <div className="text-xs text-gray-600">
+                  {syncStatus.autoSyncEnabled
+                    ? '数据变化时自动同步到云端'
+                    : '需要手动点击按钮同步'}
+                </div>
+              </div>
+              <Button
+                onClick={handleToggleAutoSync}
+                disabled={isLoading}
+                variant={syncStatus.autoSyncEnabled ? 'default' : 'outline'}
+                size="sm"
+              >
+                {syncStatus.autoSyncEnabled ? '已启用' : '已禁用'}
+              </Button>
+            </div>
           )}
         </div>
       </Card>
@@ -291,8 +339,8 @@ export function SyncSettingsPage() {
           <ul className="text-sm text-gray-700 space-y-1 ml-2">
             <li>• 使用 Supabase 提供的云端存储服务</li>
             <li>• 您的数据将被加密并安全存储在云端</li>
-            <li>• 支持多设备自动同步，随时随地学习</li>
-            <li>• 建议定期手动同步以确保数据最新</li>
+            <li>• 启用自动同步后，数据变化会在 3 秒后自动上传</li>
+            <li>• 也可以随时手动点击"立即同步"按钮</li>
             <li>• <strong>API 配置和翻译历史不会同步</strong>，仅保存在本地</li>
           </ul>
         </div>
