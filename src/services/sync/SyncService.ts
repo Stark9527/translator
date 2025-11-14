@@ -156,12 +156,24 @@ export class SyncService {
       remoteGroupsMap.delete(localGroup.id);
     }
 
-    // 4. 下载云端新增的分组
+    // 4. 处理云端存在但本地不存在的分组
+    // 需要区分：是云端新增还是本地删除
+    // 策略：检查本地分组 ID 集合，如果本地没有且不是默认分组，说明是本地删除，应该删除云端
+    const localGroupIds = new Set(localGroups.map(g => g.id));
+    let deleted = 0;
+
     for (const remoteGroup of remoteGroupsMap.values()) {
-      await this.downloadGroup(remoteGroup);
-      downloaded++;
+      // 如果本地没有这个分组（且不是默认分组），说明是本地删除了，应该删除云端
+      // 注意：默认分组不同步到云端，所以云端不会有默认分组
+      if (!localGroupIds.has(remoteGroup.id)) {
+        // 从云端删除这个分组
+        await this.deleteRemoteGroup(remoteGroup.id);
+        deleted++;
+        console.log(`🗑️ 删除云端分组: ${remoteGroup.name} (${remoteGroup.id})`);
+      }
     }
 
+    console.log(`✅ 分组同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 删除: ${deleted}`);
     return { uploaded, downloaded, conflicts };
   }
 
@@ -218,12 +230,23 @@ export class SyncService {
       remoteCardsMap.delete(localCard.id);
     }
 
-    // 4. 下载云端新增的卡片
+    // 4. 处理云端存在但本地不存在的卡片
+    // 需要区分：是云端新增还是本地删除
+    // 策略：检查本地卡片 ID 集合，如果本地没有，说明是本地删除，应该删除云端
+    const localCardIds = new Set(localCards.map(c => c.id));
+    let deleted = 0;
+
     for (const remoteCard of remoteCardsMap.values()) {
-      await this.downloadFlashcard(remoteCard);
-      downloaded++;
+      // 如果本地没有这张卡片，说明是本地删除了，应该删除云端
+      if (!localCardIds.has(remoteCard.id)) {
+        // 从云端删除这张卡片
+        await this.deleteRemoteFlashcard(remoteCard.id);
+        deleted++;
+        console.log(`🗑️ 删除云端卡片: ${remoteCard.word} (${remoteCard.id})`);
+      }
     }
 
+    console.log(`✅ 卡片同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 删除: ${deleted}`);
     return { uploaded, downloaded, conflicts };
   }
 
@@ -272,6 +295,38 @@ export class SyncService {
       await flashcardDB.updateGroup(group);
     } else {
       await flashcardDB.addGroup(group);
+    }
+  }
+
+  /**
+   * 删除云端分组
+   */
+  private async deleteRemoteGroup(groupId: string): Promise<void> {
+    const client = supabaseService.getClient();
+
+    const { error } = await client
+      .from('groups')
+      .delete()
+      .eq('id', groupId);
+
+    if (error) {
+      throw new Error(`删除云端分组失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 删除云端卡片
+   */
+  private async deleteRemoteFlashcard(cardId: string): Promise<void> {
+    const client = supabaseService.getClient();
+
+    const { error } = await client
+      .from('flashcards')
+      .delete()
+      .eq('id', cardId);
+
+    if (error) {
+      throw new Error(`删除云端卡片失败: ${error.message}`);
     }
   }
 
