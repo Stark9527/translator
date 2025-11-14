@@ -1,6 +1,8 @@
 #claude
 .claudefiles
+.claude/
 .claude
+.claude/*
 
 # Dependencies
 node_modules/
