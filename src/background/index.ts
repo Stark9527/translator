@@ -5,23 +5,38 @@ import { TranslationManager } from '@/services/translation/TranslationManager';
 import { ConfigService, ConfigValidationError, StorageQuotaError } from '@/services/config/ConfigService';
 import { flashcardService } from '@/services/flashcard';
 import { supabaseService, syncService } from '@/services/sync';
-import { flashcardDB } from '@/services/flashcard/FlashcardDB';
 
 console.info('Background service worker started');
 
 // 初始化 Supabase
 supabaseService.initialize();
 
-// 连接 FlashcardDB 数据变化事件到自动同步
-flashcardDB.setOnDataChange(() => {
-  console.log('📝 数据变化检测，准备触发自动同步...');
-  syncService.triggerAutoSync();
+// 创建定时同步的 Alarm（每10分钟同步一次）
+const SYNC_ALARM_NAME = 'auto-sync';
+const SYNC_INTERVAL_MINUTES = 10;
+
+chrome.alarms.create(SYNC_ALARM_NAME, {
+  periodInMinutes: SYNC_INTERVAL_MINUTES,
 });
 
-// 启用自动同步（包括定期同步）
-syncService.enableAutoSync();
-
-console.info('✅ 自动同步已启用');
+// 监听 Alarm 事件
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === SYNC_ALARM_NAME) {
+    // 检查是否已登录且启用了自动同步
+    if (supabaseService.isAuthenticated()) {
+      const config = await ConfigService.getConfig();
+      if (config.autoSync !== false) {
+        console.info('🔄 定时自动同步开始...');
+        try {
+          const result = await syncService.sync();
+          console.info('✅ 定时自动同步完成:', result);
+        } catch (error) {
+          console.error('❌ 定时自动同步失败:', error);
+        }
+      }
+    }
+  }
+});
 
 // 监听扩展安装事件
 chrome.runtime.onInstalled.addListener(async details => {
@@ -188,6 +203,16 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
       // 登录
       const { email, password } = payload as { email: string; password: string };
       const user = await supabaseService.signInWithPassword(email, password);
+
+      // 登录成功后自动同步一次云端数据
+      try {
+        console.info('🔄 登录成功，开始同步云端数据...');
+        await syncService.sync();
+        console.info('✅ 云端数据同步完成');
+      } catch (error) {
+        console.error('❌ 云端数据同步失败（不影响登录）:', error);
+      }
+
       return { user };
     }
 
@@ -195,6 +220,16 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
       // 注册
       const { email, password } = payload as { email: string; password: string };
       const user = await supabaseService.signUp(email, password);
+
+      // 注册成功后自动同步一次云端数据
+      try {
+        console.info('🔄 注册成功，开始同步云端数据...');
+        await syncService.sync();
+        console.info('✅ 云端数据同步完成');
+      } catch (error) {
+        console.error('❌ 云端数据同步失败（不影响注册）:', error);
+      }
+
       return { user };
     }
 
@@ -218,23 +253,28 @@ async function handleMessage(message: Message, _sender: chrome.runtime.MessageSe
 
     case 'GET_SYNC_STATUS': {
       // 获取同步状态
+      const config = await ConfigService.getConfig();
       return {
         isSyncing: syncService.getIsSyncing(),
-        lastSyncTime: syncService.getLastSyncTime(),
+        lastSyncTime: await syncService.getLastSyncTime(),
         isAuthenticated: supabaseService.isAuthenticated(),
-        autoSyncEnabled: syncService.isAutoSyncEnabled(),
+        autoSyncEnabled: config.autoSync !== false, // 默认为 true
       };
     }
 
     case 'ENABLE_AUTO_SYNC': {
       // 启用自动同步
-      syncService.enableAutoSync();
+      const config = await ConfigService.getConfig();
+      config.autoSync = true;
+      await ConfigService.saveConfig(config);
       return { success: true };
     }
 
     case 'DISABLE_AUTO_SYNC': {
       // 禁用自动同步
-      syncService.disableAutoSync();
+      const config = await ConfigService.getConfig();
+      config.autoSync = false;
+      await ConfigService.saveConfig(config);
       return { success: true };
     }
 

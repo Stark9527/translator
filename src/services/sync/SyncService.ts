@@ -13,6 +13,7 @@ import type { LanguageCode, TranslationEngine } from '@/types';
 import { ProficiencyLevel } from '@/types/flashcard';
 import { supabaseService } from './SupabaseService';
 import { flashcardDB } from '../flashcard/FlashcardDB';
+import { ConfigService } from '../config/ConfigService';
 
 /**
  * FSRS State 映射（本地 <-> 云端）
@@ -39,11 +40,11 @@ const FSRS_STRING_TO_STATE = {
 export class SyncService {
   private isSyncing = false;
   private lastSyncTime: number = 0;
-  private autoSyncEnabled = true;
-  private syncDebounceTimer: number | null = null;
-  private periodicSyncTimer: number | null = null;
-  private readonly DEBOUNCE_DELAY = 3000; // 3 秒防抖
-  private readonly PERIODIC_SYNC_INTERVAL = 30000; // 30 秒定期同步
+
+  // 防抖队列：用于合并短时间内的多次同步请求
+  private groupSyncQueue = new Map<string, number>();
+  private cardSyncQueue = new Map<string, number>();
+  private readonly DEBOUNCE_DELAY = 1000; // 1秒防抖延迟
 
   /**
    * 执行完整同步
@@ -81,6 +82,9 @@ export class SyncService {
       result.status = SyncStatus.Success;
       this.lastSyncTime = Date.now();
 
+      // 保存同步时间到配置
+      await ConfigService.saveConfig({ lastSyncTime: this.lastSyncTime });
+
       console.info('✅ 同步完成:', result);
       return result;
     } catch (error) {
@@ -112,12 +116,11 @@ export class SyncService {
     // 1. 获取本地所有分组
     const localGroups = await flashcardDB.getAllGroups();
 
-    // 2. 获取云端所有分组（过滤掉已删除的分组）
+    // 2. 获取云端所有分组（包括已删除的，用于同步删除状态）
     const { data: remoteGroups, error } = await client
       .from('groups')
       .select('*')
-      .eq('user_id', userId)
-      .eq('deleted', false);
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(`获取云端分组失败: ${error.message}`);
@@ -131,7 +134,7 @@ export class SyncService {
     let downloaded = 0;
     const conflicts = 0;
 
-    // 3. 上传本地新增/更新的分组
+    // 3. 同步本地分组
     for (const localGroup of localGroups) {
       // 跳过默认分组（不需要同步到云端）
       if (localGroup.id === 'default') {
@@ -144,6 +147,10 @@ export class SyncService {
         // 本地新增，上传到云端
         await this.uploadGroup(localGroup, userId);
         uploaded++;
+      } else if (remoteGroup.deleted) {
+        // 云端已删除，删除本地记录
+        await flashcardDB.deleteGroup(localGroup.id);
+        console.debug('✅ 同步删除本地分组:', localGroup.id);
       } else if (localGroup.updatedAt > new Date(remoteGroup.updated_at).getTime()) {
         // 本地更新较新，上传到云端
         await this.uploadGroup(localGroup, userId);
@@ -157,24 +164,14 @@ export class SyncService {
       remoteGroupsMap.delete(localGroup.id);
     }
 
-    // 4. 处理云端存在但本地不存在的分组
-    // 需要区分：是云端新增还是本地删除
-    // 策略：检查本地分组 ID 集合，如果本地没有且不是默认分组，说明是本地删除，应该删除云端
-    const localGroupIds = new Set(localGroups.map(g => g.id));
-    let deleted = 0;
-
+    // 4. 下载云端新增的分组（排除已删除的）
     for (const remoteGroup of remoteGroupsMap.values()) {
-      // 如果本地没有这个分组（且不是默认分组），说明是本地删除了，应该删除云端
-      // 注意：默认分组不同步到云端，所以云端不会有默认分组
-      if (!localGroupIds.has(remoteGroup.id)) {
-        // 从云端删除这个分组
-        await this.deleteRemoteGroup(remoteGroup.id);
-        deleted++;
-        console.log(`🗑️ 删除云端分组: ${remoteGroup.name} (${remoteGroup.id})`);
+      if (!remoteGroup.deleted) {
+        await this.downloadGroup(remoteGroup);
+        downloaded++;
       }
     }
 
-    console.log(`✅ 分组同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 删除: ${deleted}`);
     return { uploaded, downloaded, conflicts };
   }
 
@@ -192,12 +189,11 @@ export class SyncService {
     // 1. 获取本地所有卡片
     const localCards = await flashcardDB.getAllFlashcards();
 
-    // 2. 获取云端所有卡片（过滤掉已删除的卡片）
+    // 2. 获取云端所有卡片（包括已删除的，用于同步删除状态）
     const { data: remoteCards, error } = await client
       .from('flashcards')
       .select('*')
-      .eq('user_id', userId)
-      .eq('deleted', false);
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(`获取云端卡片失败: ${error.message}`);
@@ -219,6 +215,10 @@ export class SyncService {
         // 本地新增，上传到云端
         await this.uploadFlashcard(localCard, userId);
         uploaded++;
+      } else if (remoteCard.deleted) {
+        // 云端已删除，删除本地记录
+        await flashcardDB.deleteFlashcard(localCard.id);
+        console.debug('✅ 同步删除本地卡片:', localCard.id);
       } else if (localCard.updatedAt > new Date(remoteCard.updated_at).getTime()) {
         // 本地更新较新，上传到云端
         await this.uploadFlashcard(localCard, userId);
@@ -232,23 +232,14 @@ export class SyncService {
       remoteCardsMap.delete(localCard.id);
     }
 
-    // 4. 处理云端存在但本地不存在的卡片
-    // 需要区分：是云端新增还是本地删除
-    // 策略：检查本地卡片 ID 集合，如果本地没有，说明是本地删除，应该删除云端
-    const localCardIds = new Set(localCards.map(c => c.id));
-    let deleted = 0;
-
+    // 4. 下载云端新增的卡片（排除已删除的）
     for (const remoteCard of remoteCardsMap.values()) {
-      // 如果本地没有这张卡片，说明是本地删除了，应该删除云端
-      if (!localCardIds.has(remoteCard.id)) {
-        // 从云端删除这张卡片
-        await this.deleteRemoteFlashcard(remoteCard.id);
-        deleted++;
-        console.log(`🗑️ 删除云端卡片: ${remoteCard.word} (${remoteCard.id})`);
+      if (!remoteCard.deleted) {
+        await this.downloadFlashcard(remoteCard);
+        downloaded++;
       }
     }
 
-    console.log(`✅ 卡片同步完成 - 上传: ${uploaded}, 下载: ${downloaded}, 删除: ${deleted}`);
     return { uploaded, downloaded, conflicts };
   }
 
@@ -265,7 +256,6 @@ export class SyncService {
       description: group.description || null,
       color: group.color || '#3b82f6',
       deleted: false, // 上传时标记为未删除
-      deleted_at: null,
     };
 
     const { error } = await client
@@ -303,46 +293,6 @@ export class SyncService {
   }
 
   /**
-   * 删除云端分组（软删除）
-   */
-  private async deleteRemoteGroup(groupId: string): Promise<void> {
-    const client = supabaseService.getClient();
-
-    // 使用软删除：标记 deleted = true，记录删除时间
-    const { error } = await client
-      .from('groups')
-      .update({
-        deleted: true,
-        deleted_at: new Date().toISOString(),
-      })
-      .eq('id', groupId);
-
-    if (error) {
-      throw new Error(`删除云端分组失败: ${error.message}`);
-    }
-  }
-
-  /**
-   * 删除云端卡片（软删除）
-   */
-  private async deleteRemoteFlashcard(cardId: string): Promise<void> {
-    const client = supabaseService.getClient();
-
-    // 使用软删除：标记 deleted = true，记录删除时间
-    const { error } = await client
-      .from('flashcards')
-      .update({
-        deleted: true,
-        deleted_at: new Date().toISOString(),
-      })
-      .eq('id', cardId);
-
-    if (error) {
-      throw new Error(`删除云端卡片失败: ${error.message}`);
-    }
-  }
-
-  /**
    * 上传 Flashcard 到云端
    * 将本地的 Flashcard 对象转换为云端的展开格式
    */
@@ -362,6 +312,9 @@ export class SyncService {
       definitions: card.meanings || [],
       examples: card.examples || [],
 
+      // 用户标记
+      favorite: card.favorite,
+
       // FSRS 字段（展开存储）
       state: FSRS_STATE_TO_STRING[card.fsrsCard.state as keyof typeof FSRS_STATE_TO_STRING] || 'new',
       due: new Date(card.fsrsCard.due).toISOString(),
@@ -373,12 +326,8 @@ export class SyncService {
       lapses: card.fsrsCard.lapses,
       last_review: card.fsrsCard.last_review ? new Date(card.fsrsCard.last_review).toISOString() : null,
 
-      // 软删除字段
+      // 软删除标记
       deleted: false, // 上传时标记为未删除
-      deleted_at: null,
-
-      // 收藏字段
-      favorite: card.favorite || false,
     };
 
     const { error } = await client
@@ -413,7 +362,7 @@ export class SyncService {
 
       groupId: cardRow.group_id || 'default',
       tags: [],
-      favorite: cardRow.favorite || false, // 从云端读取收藏状态
+      favorite: cardRow.favorite || false,
 
       // 重新组装 FSRS 数据
       fsrsCard: {
@@ -472,10 +421,11 @@ export class SyncService {
   }
 
   /**
-   * 获取上次同步时间
+   * 获取上次同步时间（从配置中读取）
    */
-  getLastSyncTime(): number {
-    return this.lastSyncTime;
+  async getLastSyncTime(): Promise<number> {
+    const config = await ConfigService.getConfig();
+    return config.lastSyncTime || 0;
   }
 
   /**
@@ -485,119 +435,176 @@ export class SyncService {
     return this.isSyncing;
   }
 
-  /**
-   * 触发防抖同步
-   * 在数据变化时调用此方法，会在一定延迟后自动同步
-   */
-  triggerAutoSync(): void {
-    if (!this.autoSyncEnabled) {
-      console.log('自动同步已禁用');
-      return;
-    }
+  // ==================== 单个项目的实时同步方法 ====================
 
+  /**
+   * 同步单个 Flashcard 到云端（带防抖）
+   * 用于实时同步，静默执行，不抛出错误
+   */
+  syncFlashcardToCloud(card: Flashcard): void {
+    // 如果未登录，跳过同步
     if (!supabaseService.isAuthenticated()) {
-      console.log('用户未登录，跳过自动同步');
       return;
     }
 
-    // 清除现有的防抖计时器
-    if (this.syncDebounceTimer) {
-      clearTimeout(this.syncDebounceTimer);
+    // 清除之前的防抖定时器
+    const existingTimer = this.cardSyncQueue.get(card.id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
 
-    // 设置新的防抖计时器
-    this.syncDebounceTimer = setTimeout(() => {
-      console.log('🔄 触发自动同步...');
-      this.sync().catch(error => {
-        console.error('自动同步失败:', error);
-      });
+    // 设置新的防抖定时器
+    const timer = setTimeout(async () => {
+      try {
+        const userId = supabaseService.getUserId();
+        await this.uploadFlashcard(card, userId);
+        console.debug('✅ 卡片已同步到云端:', card.id);
+      } catch (error) {
+        console.error('❌ 卡片同步失败（静默忽略）:', error);
+        // 静默失败，不影响本地操作
+      } finally {
+        this.cardSyncQueue.delete(card.id);
+      }
     }, this.DEBOUNCE_DELAY);
+
+    this.cardSyncQueue.set(card.id, timer);
   }
 
   /**
-   * 启用自动同步
+   * 从云端删除单个 Flashcard（软删除）
+   * 用于实时同步，静默执行，不抛出错误
    */
-  enableAutoSync(): void {
-    const wasEnabled = this.autoSyncEnabled;
-    this.autoSyncEnabled = true;
-
-    if (!wasEnabled) {
-      console.log('✅ 自动同步已启用');
-    }
-
-    // 启动定期同步（如果尚未启动）
-    if (!this.periodicSyncTimer) {
-      this.startPeriodicSync();
-    }
-  }
-
-  /**
-   * 启动定期同步
-   */
-  private startPeriodicSync(): void {
-    // 清除现有的定时器
-    if (this.periodicSyncTimer) {
-      clearInterval(this.periodicSyncTimer);
-    }
-
-    // 设置新的定期同步定时器
-    this.periodicSyncTimer = setInterval(() => {
-      if (!supabaseService.isAuthenticated()) {
-        console.log('⏭️ 用户未登录，跳过定期同步');
-        return;
-      }
-
-      if (this.isSyncing) {
-        console.log('⏭️ 同步正在进行中，跳过本次定期同步');
-        return;
-      }
-
-      console.log('🔄 执行定期同步...');
-      this.sync().catch(error => {
-        console.error('定期同步失败:', error);
-      });
-    }, this.PERIODIC_SYNC_INTERVAL);
-
-    console.log(`⏰ 定期同步已启动 (间隔: ${this.PERIODIC_SYNC_INTERVAL / 1000}秒)`);
-  }
-
-  /**
-   * 停止定期同步
-   */
-  private stopPeriodicSync(): void {
-    if (this.periodicSyncTimer) {
-      clearInterval(this.periodicSyncTimer);
-      this.periodicSyncTimer = null;
-      console.log('⏰ 定期同步已停止');
-    }
-  }
-
-  /**
-   * 禁用自动同步
-   */
-  disableAutoSync(): void {
-    if (!this.autoSyncEnabled) {
+  async deleteFlashcardFromCloud(cardId: string): Promise<void> {
+    // 如果未登录，跳过同步
+    if (!supabaseService.isAuthenticated()) {
       return;
     }
 
-    this.autoSyncEnabled = false;
-    console.log('❌ 自动同步已禁用');
+    try {
+      const client = supabaseService.getClient();
+      const { error } = await client
+        .from('flashcards')
+        .update({
+          deleted: true,
+          deleted_at: new Date().toISOString(),
+        })
+        .eq('id', cardId);
 
-    // 清除防抖计时器
-    if (this.syncDebounceTimer) {
-      clearTimeout(this.syncDebounceTimer);
-      this.syncDebounceTimer = null;
+      if (error) {
+        throw new Error(`删除云端卡片失败: ${error.message}`);
+      }
+
+      console.debug('✅ 卡片已从云端删除（软删除）:', cardId);
+    } catch (error) {
+      console.error('❌ 删除云端卡片失败（静默忽略）:', error);
+      // 静默失败，不影响本地操作
     }
-
-    // 停止定期同步
-    this.stopPeriodicSync();
   }
 
   /**
-   * 检查自动同步是否启用
+   * 从云端批量删除 Flashcards（软删除）
+   * 用于批量删除，静默执行，不抛出错误
+   * 使用 Supabase 的 .in() 方法一次性删除多张卡片，避免大量网络请求
    */
-  isAutoSyncEnabled(): boolean {
-    return this.autoSyncEnabled;
+  async batchDeleteFlashcardsFromCloud(cardIds: string[]): Promise<void> {
+    // 如果未登录或没有卡片，跳过同步
+    if (!supabaseService.isAuthenticated() || cardIds.length === 0) {
+      return;
+    }
+
+    try {
+      const client = supabaseService.getClient();
+      const { error } = await client
+        .from('flashcards')
+        .update({
+          deleted: true,
+          deleted_at: new Date().toISOString(),
+        })
+        .in('id', cardIds);
+
+      if (error) {
+        throw new Error(`批量删除云端卡片失败: ${error.message}`);
+      }
+
+      console.debug(`✅ ${cardIds.length} 张卡片已从云端删除（软删除）`);
+    } catch (error) {
+      console.error('❌ 批量删除云端卡片失败（静默忽略）:', error);
+      // 静默失败，不影响本地操作
+    }
+  }
+
+  /**
+   * 同步单个 Group 到云端（带防抖）
+   * 用于实时同步，静默执行，不抛出错误
+   */
+  syncGroupToCloud(group: FlashcardGroup): void {
+    // 如果未登录，跳过同步
+    if (!supabaseService.isAuthenticated()) {
+      return;
+    }
+
+    // 跳过默认分组
+    if (group.id === 'default') {
+      return;
+    }
+
+    // 清除之前的防抖定时器
+    const existingTimer = this.groupSyncQueue.get(group.id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // 设置新的防抖定时器
+    const timer = setTimeout(async () => {
+      try {
+        const userId = supabaseService.getUserId();
+        await this.uploadGroup(group, userId);
+        console.debug('✅ 分组已同步到云端:', group.id);
+      } catch (error) {
+        console.error('❌ 分组同步失败（静默忽略）:', error);
+        // 静默失败，不影响本地操作
+      } finally {
+        this.groupSyncQueue.delete(group.id);
+      }
+    }, this.DEBOUNCE_DELAY);
+
+    this.groupSyncQueue.set(group.id, timer);
+  }
+
+  /**
+   * 从云端删除单个 Group（软删除）
+   * 用于实时同步，静默执行，不抛出错误
+   */
+  async deleteGroupFromCloud(groupId: string): Promise<void> {
+    // 如果未登录，跳过同步
+    if (!supabaseService.isAuthenticated()) {
+      return;
+    }
+
+    // 跳过默认分组
+    if (groupId === 'default') {
+      return;
+    }
+
+    try {
+      const client = supabaseService.getClient();
+      const { error } = await client
+        .from('groups')
+        .update({
+          deleted: true,
+          deleted_at: new Date().toISOString(),
+        })
+        .eq('id', groupId);
+
+      if (error) {
+        throw new Error(`删除云端分组失败: ${error.message}`);
+      }
+
+      console.debug('✅ 分组已从云端删除（软删除）:', groupId);
+    } catch (error) {
+      console.error('❌ 删除云端分组失败（静默忽略）:', error);
+      // 静默失败，不影响本地操作
+    }
   }
 }
 

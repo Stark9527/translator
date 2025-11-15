@@ -192,7 +192,7 @@ export function SyncSettingsPage() {
                 </div>
                 {syncStatus.lastSyncTime > 0 && (
                   <div className="text-sm text-gray-600">
-                    上次同步: {new Date(syncStatus.lastSyncTime).toLocaleString('zh-CN')}
+                    最近一次从云端同步: {new Date(syncStatus.lastSyncTime).toLocaleString('zh-CN')}
                   </div>
                 )}
               </div>
@@ -339,7 +339,8 @@ export function SyncSettingsPage() {
           <ul className="text-sm text-gray-700 space-y-1 ml-2">
             <li>• 使用 Supabase 提供的云端存储服务</li>
             <li>• 您的数据将被加密并安全存储在云端</li>
-            <li>• 启用自动同步后，数据变化会在 3 秒后自动上传</li>
+            <li>• 启用自动同步后，数据变化会在 1 秒后自动上传</li>
+            <li>• 每 10 分钟自动从云端同步数据</li>
             <li>• 也可以随时手动点击"立即同步"按钮</li>
             <li>• <strong>API 配置和翻译历史不会同步</strong>，仅保存在本地</li>
           </ul>
