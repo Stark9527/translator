@@ -10,7 +10,7 @@ export interface GroupRow {
   description?: string | null;
   color: string;
   deleted: boolean; // 软删除标记
-  deleted_at?: string | null; // TIMESTAMPTZ - 删除时间
+  deleted_at?: string | null; // TIMESTAMPTZ, 删除时间
   created_at: string; // TIMESTAMPTZ
   updated_at: string; // TIMESTAMPTZ
 }
@@ -30,6 +30,9 @@ export interface FlashcardRow {
   definitions: any[]; // JSONB
   examples: any[]; // JSONB
 
+  // 用户标记
+  favorite: boolean; // 是否收藏
+
   // FSRS 算法字段（展开存储）
   state: 'new' | 'learning' | 'review' | 'relearning';
   due: string; // TIMESTAMPTZ
@@ -41,13 +44,8 @@ export interface FlashcardRow {
   lapses: number; // INTEGER
   last_review?: string | null; // TIMESTAMPTZ
 
-  // 软删除字段
   deleted: boolean; // 软删除标记
-  deleted_at?: string | null; // TIMESTAMPTZ - 删除时间
-
-  // 收藏字段
-  favorite: boolean; // 收藏标记
-
+  deleted_at?: string | null; // TIMESTAMPTZ, 删除时间
   created_at: string; // TIMESTAMPTZ
   updated_at: string; // TIMESTAMPTZ
 }
@@ -72,6 +70,28 @@ export interface UserConfigRow {
   id: string; // UUID
   user_id: string; // UUID
   config: any; // JSONB
+  created_at: string; // TIMESTAMPTZ
+  updated_at: string; // TIMESTAMPTZ
+}
+
+/**
+ * 每日学习统计表（daily_stats）
+ */
+export interface DailyStatsRow {
+  id: string; // UUID
+  user_id: string; // UUID
+  date: string; // DATE (YYYY-MM-DD)
+  new_cards: number; // INTEGER
+  reviewed_cards: number; // INTEGER
+  mastered_cards: number; // INTEGER
+  total_answers: number; // INTEGER
+  correct_count: number; // INTEGER
+  wrong_count: number; // INTEGER
+  total_study_time: number; // INTEGER (毫秒)
+  average_response_time: number; // INTEGER (毫秒)
+  studied_card_ids: string[]; // JSONB array
+  new_card_ids: string[]; // JSONB array
+  mastered_card_ids: string[]; // JSONB array
   created_at: string; // TIMESTAMPTZ
   updated_at: string; // TIMESTAMPTZ
 }
