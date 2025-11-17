@@ -13,6 +13,7 @@ import type { LanguageCode, TranslationEngine } from '@/types';
 import { ProficiencyLevel } from '@/types/flashcard';
 import { supabaseService } from './SupabaseService';
 import { flashcardDB } from '../flashcard/FlashcardDB';
+import { flashcardService } from '../flashcard/FlashcardService';
 import { ConfigService } from '../config/ConfigService';
 
 /**
@@ -78,6 +79,10 @@ export class SyncService {
       const cardResult = await this.syncFlashcards();
       result.uploadedCount += cardResult.uploaded;
       result.downloadedCount += cardResult.downloaded;
+
+      // 3. 重新计算所有分组的卡片数量
+      // 确保 cardCount 数据准确（因为同步过程中可能绕过了正常的更新机制）
+      await flashcardService.recalculateAllGroupCardCounts(false);
 
       result.status = SyncStatus.Success;
       this.lastSyncTime = Date.now();

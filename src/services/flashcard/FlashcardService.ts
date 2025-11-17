@@ -499,6 +499,37 @@ export class FlashcardService {
   }
 
   /**
+   * 重新计算所有分组的卡片数量
+   * 用于同步后确保 cardCount 数据的准确性
+   * @param sync 是否同步到云端（默认 false，因为通常在同步后调用）
+   */
+  async recalculateAllGroupCardCounts(sync: boolean = false): Promise<void> {
+    const groups = await flashcardDB.getAllGroups();
+
+    for (const group of groups) {
+      const cards = await flashcardDB.getFlashcardsByGroup(group.id);
+
+      // 只有当 cardCount 不准确时才更新
+      if (group.cardCount !== cards.length) {
+        const updated: FlashcardGroup = {
+          ...group,
+          cardCount: cards.length,
+          updatedAt: Date.now(),
+        };
+
+        await flashcardDB.updateGroup(updated);
+
+        // 如果需要同步到云端
+        if (sync && await this.shouldAutoSync()) {
+          syncService.syncGroupToCloud(updated);
+        }
+      }
+    }
+
+    console.debug('✅ 重新计算所有分组卡片数量完成');
+  }
+
+  /**
    * 确保默认分组存在
    */
   async ensureDefaultGroup(): Promise<void> {
@@ -564,17 +595,39 @@ export class FlashcardService {
   }
 
   /**
+   * 标准化语言代码（提取主要语言部分）
+   * 例如: 'zh-CN' -> 'zh', 'en-US' -> 'en'
+   */
+  private normalizeLanguageCode(langCode: string): string {
+    // 如果是 'auto'，直接返回
+    if (langCode === 'auto') {
+      return langCode;
+    }
+    // 提取连字符之前的部分（主要语言代码）
+    return langCode.split('-')[0].toLowerCase();
+  }
+
+  /**
    * 检查卡片是否存在（避免重复收藏）
-   * 使用完全匹配（区分大小写）
+   * 使用宽松匹配：单词完全匹配 + 语言代码主要部分匹配
+   * 例如: zh-CN 和 zh 会被视为相同的语言
    */
   async exists(word: string, sourceLanguage: string, targetLanguage: string): Promise<boolean> {
     const allCards = await flashcardDB.getAllFlashcards();
-    return allCards.some(
+
+    // 标准化语言代码
+    const normalizedSourceLang = this.normalizeLanguageCode(sourceLanguage);
+    const normalizedTargetLang = this.normalizeLanguageCode(targetLanguage);
+
+    // 使用标准化后的语言代码进行匹配
+    const exists = allCards.some(
       card =>
         card.word === word &&
-        card.sourceLanguage === sourceLanguage &&
-        card.targetLanguage === targetLanguage
+        this.normalizeLanguageCode(card.sourceLanguage) === normalizedSourceLang &&
+        this.normalizeLanguageCode(card.targetLanguage) === normalizedTargetLang
     );
+
+    return exists;
   }
 
   /**

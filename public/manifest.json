@@ -32,7 +32,7 @@
       "all_frames": false
     }
   ],
-  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "clipboardRead"],
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "clipboardRead", "alarms"],
   "host_permissions": [
     "https://translate.googleapis.com/*",
     "https://api.deepl.com/*",
