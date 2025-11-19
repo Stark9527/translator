@@ -398,6 +398,10 @@ export class SyncService {
       phonetic: card.phonetic || null,
       definitions: card.meanings || [],
 
+      // 语言信息
+      source_language: card.sourceLanguage,
+      target_language: card.targetLanguage,
+
       // 用户标记
       favorite: card.favorite,
 
@@ -440,10 +444,10 @@ export class SyncService {
       phonetic: cardRow.phonetic || undefined,
       meanings: cardRow.definitions || [],
 
-      // 这些字段在云端没有存储，使用默认值
-      sourceLanguage: 'en' as LanguageCode,
-      targetLanguage: 'zh' as LanguageCode,
-      engine: 'google' as TranslationEngine,
+      // 语言信息（从云端读取，如果不存在则使用默认值）
+      sourceLanguage: (cardRow.source_language || 'en') as LanguageCode,
+      targetLanguage: (cardRow.target_language || 'zh-CN') as LanguageCode,
+      engine: 'google' as TranslationEngine, // engine 字段云端没有存储，使用默认值
 
       groupId: cardRow.group_id || 'default',
       tags: [],

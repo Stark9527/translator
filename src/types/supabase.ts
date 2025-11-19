@@ -28,7 +28,10 @@ export interface FlashcardRow {
   translation: string;
   phonetic?: string | null;
   definitions: any[]; // JSONB
-  examples: any[]; // JSONB
+
+  // 语言信息
+  source_language: string; // 源语言代码（例如：en, zh-CN, zh-TW, ja）
+  target_language: string; // 目标语言代码（例如：en, zh-CN, zh-TW, ja）
 
   // 用户标记
   favorite: boolean; // 是否收藏

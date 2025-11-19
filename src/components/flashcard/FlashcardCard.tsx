@@ -167,12 +167,6 @@ export function FlashcardCard({
           {/* 翻译 */}
           <p className="text-xs text-muted-foreground mb-2 whitespace-pre-line">{flashcard.translation}</p>
 
-          {/* 例句（如果有，只显示第一条） */}
-          {flashcard.examples && flashcard.examples.length > 0 && (
-            <p className="text-xs text-muted-foreground italic mb-2 line-clamp-2">
-              &quot;{flashcard.examples[0]}&quot;
-            </p>
-          )}
 
           {/* 底部：徽章 + 分组 + 标签 + 操作 */}
           <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border">
