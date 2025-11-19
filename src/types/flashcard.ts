@@ -39,7 +39,6 @@ export interface FlashcardData {
   word: string;                  // 单词/短语
   translation: string;           // 翻译
   pronunciation?: string;        // 发音
-  examples?: string[];           // 例句
   notes?: string;                // 用户笔记
 
   // 词典信息（多词性、多释义）
@@ -183,7 +182,6 @@ export interface CreateFlashcardParams {
   word: string;
   translation: string;
   pronunciation?: string;
-  examples?: string[];
   notes?: string;
   sourceLanguage: LanguageCode;
   targetLanguage: LanguageCode;
@@ -199,7 +197,6 @@ export interface UpdateFlashcardParams {
   word?: string;
   translation?: string;
   pronunciation?: string;
-  examples?: string[];
   notes?: string;
   groupId?: string;
   tags?: string[];
