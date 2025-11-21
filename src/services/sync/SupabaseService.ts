@@ -3,6 +3,39 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@supabase/supabase-js';
 
 /**
+ * Chrome 扩展存储适配器
+ * 用于在 Service Worker 中持久化 Supabase 会话
+ * Service Worker 无法访问 localStorage，需要使用 chrome.storage.local
+ */
+const chromeStorageAdapter = {
+  async getItem(key: string): Promise<string | null> {
+    try {
+      const result = await chrome.storage.local.get(key);
+      return result[key] || null;
+    } catch (error) {
+      console.error('Failed to get item from chrome.storage:', error);
+      return null;
+    }
+  },
+
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      await chrome.storage.local.set({ [key]: value });
+    } catch (error) {
+      console.error('Failed to set item to chrome.storage:', error);
+    }
+  },
+
+  async removeItem(key: string): Promise<void> {
+    try {
+      await chrome.storage.local.remove(key);
+    } catch (error) {
+      console.error('Failed to remove item from chrome.storage:', error);
+    }
+  },
+};
+
+/**
  * Supabase 服务
  * 提供 Supabase 客户端初始化和基础操作
  */
@@ -12,8 +45,9 @@ export class SupabaseService {
 
   /**
    * 初始化 Supabase 客户端
+   * 使用自定义存储适配器以支持 Service Worker 环境
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -27,13 +61,30 @@ export class SupabaseService {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
+        storage: chromeStorageAdapter, // 使用 chrome.storage.local 持久化会话
       },
     });
 
     // 监听认证状态变化
     this.client.auth.onAuthStateChange((_event, session) => {
       this.currentUser = session?.user || null;
+      console.info('Auth state changed:', _event, session?.user?.email || 'no user');
     });
+
+    // 尝试从存储中恢复会话
+    try {
+      const { data, error } = await this.client.auth.getSession();
+      if (error) {
+        console.warn('Failed to restore session:', error.message);
+      } else if (data.session) {
+        this.currentUser = data.session.user;
+        console.info('Session restored for:', data.session.user.email);
+      } else {
+        console.info('No existing session found');
+      }
+    } catch (error) {
+      console.error('Error restoring session:', error);
+    }
 
     console.info('Supabase initialized');
   }

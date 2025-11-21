@@ -8,8 +8,10 @@ import { supabaseService, syncService } from '@/services/sync';
 
 console.info('Background service worker started');
 
-// 初始化 Supabase
-supabaseService.initialize();
+// 初始化 Supabase（异步，会自动恢复已保存的会话）
+supabaseService.initialize().catch((error) => {
+  console.error('Failed to initialize Supabase:', error);
+});
 
 // 创建定时同步的 Alarm（每10分钟同步一次）
 const SYNC_ALARM_NAME = 'auto-sync';
